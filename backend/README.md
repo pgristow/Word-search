@@ -19,12 +19,17 @@ Spring Boot backend for the endless word search game with progressive difficulty
 - Category management
 - Word bank loaded from CSV files (6 categories with 200+ words)
 
-### Phase 2 (Partial) ✅
+### Phase 2 ✅ COMPLETE
 - **Endless board generation algorithm** with progressive difficulty
 - Dynamic word placement (horizontal, vertical, diagonal)
 - Reverse word mechanics (words backwards)
 - Scoring system with combo multipliers
 - Level calculation from total score
+- **Game session management** (start, submit word, end session)
+- **Real-time word submission** with validation
+- **User progress tracking** with statistics
+- **Streak system** for daily engagement
+- **Leaderboard** with global rankings
 
 ## Quick Start
 
@@ -114,56 +119,168 @@ GET /api/categories
 ]
 ```
 
-### Game
+### Game Sessions (Endless Mode)
 
-#### Start New Game
+#### Start New Session
 ```http
-POST /api/game/start?categoryId=550e8400-...&level=1
+POST /api/game/session/start?userId=550e8400-...&categoryId=550e8400-...
 ```
 
 **Response:**
 ```json
 {
+  "sessionId": "650e8400-...",
   "level": 1,
   "gridSize": 10,
   "category": "Animals",
   "grid": [
     "CATBIRDDOG",
     "FISHAEROG",
-    "LIONXTREE",
-    ...
+    "LIONXTREE"
   ],
   "words": [
-    { "word": "CAT", "isReversed": false },
-    { "word": "DOG", "isReversed": false },
-    { "word": "FISH", "isReversed": false }
-  ]
+    {
+      "word": "CAT",
+      "isReversed": false,
+      "startRow": 0,
+      "startCol": 0,
+      "direction": "HORIZONTAL"
+    }
+  ],
+  "currentScore": 0,
+  "currentCombo": 0,
+  "totalWordsFound": 0
 }
 ```
+
+#### Submit Found Word
+```http
+POST /api/game/session/{sessionId}/submit-word?userId=550e8400-...&word=CAT&isReversed=false&isDiagonal=false&timeElapsed=5
+```
+
+**Response:**
+```json
+{
+  "valid": true,
+  "score": 600,
+  "totalScore": 600,
+  "currentCombo": 1,
+  "leveledUp": false,
+  "newLevel": null,
+  "wordsFoundInSession": 1
+}
+```
+
+#### End Game Session
+```http
+POST /api/game/session/{sessionId}/end?userId=550e8400-...
+```
+
+**Response:**
+```json
+{
+  "sessionId": "650e8400-...",
+  "startingLevel": 1,
+  "endingLevel": 3,
+  "totalScore": 5000,
+  "wordsFound": 25,
+  "highestCombo": 8,
+  "duration": 15
+}
+```
+
+#### Get Active Session
+```http
+GET /api/game/session/active?userId=550e8400-...
+```
+
+### Game Utilities
 
 #### Calculate Score for Word
 ```http
 POST /api/game/calculate-score?word=ELEPHANT&isReversed=true&isDiagonal=true&timeElapsed=10&currentCombo=3
 ```
 
-**Response:**
-```json
-{
-  "score": 3300,
-  "word": "ELEPHANT",
-  "baseScore": 800,
-  "bonuses": {
-    "reversed": 400,
-    "diagonal": 200,
-    "speed": 500,
-    "comboMultiplier": 2
-  }
-}
-```
-
 #### Get Level from Score
 ```http
 GET /api/game/level-from-score?totalScore=50000
+```
+
+### User Progress
+
+#### Get User Progress
+```http
+GET /api/user/progress?userId=550e8400-...
+```
+
+**Response:**
+```json
+{
+  "userId": "550e8400-...",
+  "currentLevel": 15,
+  "totalScore": 125000,
+  "highestLevelReached": 15,
+  "highestCombo": 12,
+  "totalWordsFound": 450,
+  "totalReversedWordsFound": 180,
+  "currentStreakDays": 5,
+  "longestStreakDays": 12,
+  "lastPlayedAt": "2025-11-06T22:30:00"
+}
+```
+
+#### Get User Statistics
+```http
+GET /api/user/progress/statistics?userId=550e8400-...
+```
+
+**Response:**
+```json
+{
+  "totalScore": 125000,
+  "currentLevel": 15,
+  "highestLevelReached": 15,
+  "totalWordsFound": 450,
+  "totalReversedWordsFound": 180,
+  "reversedWordPercentage": 40.0,
+  "highestCombo": 12,
+  "totalSessionsPlayed": 25,
+  "averageScorePerSession": 5000,
+  "averageWordsPerSession": 18,
+  "currentStreakDays": 5,
+  "longestStreakDays": 12,
+  "totalBossLevelsCompleted": 3
+}
+```
+
+#### Update Daily Streak
+```http
+POST /api/user/progress/update-streak?userId=550e8400-...
+```
+
+#### Get Leaderboard
+```http
+GET /api/user/progress/leaderboard?limit=100
+```
+
+**Response:**
+```json
+[
+  {
+    "rank": 1,
+    "userId": "550e8400-...",
+    "totalScore": 500000,
+    "currentLevel": 45,
+    "highestLevelReached": 45
+  },
+  {
+    "rank": 2,
+    "userId": "650e8400-...",
+    "totalScore": 350000,
+    "currentLevel": 32,
+    "highestLevelReached": 35
+  }
+]
 ```
 
 ## Progressive Difficulty
@@ -240,11 +357,6 @@ backend/
 ```
 
 ## Next Steps (Not Yet Implemented)
-
-### Phase 2 (Remaining):
-- User progress tracking APIs
-- Game session management
-- Real-time word submission and validation
 
 ### Phase 3:
 - Boss level generation
