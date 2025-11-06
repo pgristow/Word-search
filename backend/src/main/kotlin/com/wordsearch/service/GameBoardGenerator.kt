@@ -1,11 +1,17 @@
 package com.wordsearch.service
 
+import com.wordsearch.repository.WordRepository
+import com.wordsearch.repository.CategoryRepository
 import org.springframework.stereotype.Service
+import java.util.UUID
 import kotlin.math.sqrt
 import kotlin.random.Random
 
 @Service
-class GameBoardGenerator {
+class GameBoardGenerator(
+    private val wordRepository: WordRepository,
+    private val categoryRepository: CategoryRepository
+) {
 
     /**
      * Generates an endless word search board that scales with level
@@ -242,6 +248,76 @@ class GameBoardGenerator {
         }
 
         return (baseScore + reverseBonus + diagonalBonus + speedBonus) * comboMultiplier
+    }
+
+    /**
+     * Generates a board for a specific category with custom difficulty and word count
+     * Used for daily challenges and boss levels
+     */
+    fun generateBoardForCategory(
+        categoryId: UUID,
+        difficultyLevel: Int,
+        targetWordCount: Int
+    ): GameBoard {
+        // Get category
+        val category = categoryRepository.findById(categoryId)
+            .orElseThrow { IllegalArgumentException("Category not found") }
+
+        // Get words for this category
+        val words = wordRepository.findByCategoryId(categoryId)
+            .map { it.word }
+
+        if (words.isEmpty()) {
+            throw IllegalStateException("No words found for category: ${category.name}")
+        }
+
+        // Get difficulty configuration
+        val baseConfig = getDifficultyConfig(difficultyLevel)
+
+        // Adjust target word count based on parameter
+        val adjustedConfig = baseConfig.copy(targetWordCount = targetWordCount)
+
+        // Generate grid
+        val gridSize = adjustedConfig.gridSize
+        val grid = Array(gridSize) { CharArray(gridSize) { ' ' } }
+        val placedWords = mutableListOf<PlacedWord>()
+
+        // Sort words by length (longest first for better placement)
+        val sortedWords = words
+            .shuffled()  // Randomize to get different words each time
+            .take(targetWordCount)
+            .sortedByDescending { it.length }
+
+        for (word in sortedWords) {
+            val shouldReverse = Random.nextFloat() < adjustedConfig.reverseWordProbability
+            val wordToPlace = if (shouldReverse) word.reversed() else word
+
+            val placement = findPlacement(grid, wordToPlace, adjustedConfig)
+            if (placement != null) {
+                placeWord(grid, wordToPlace, placement)
+                placedWords.add(
+                    PlacedWord(
+                        word = word,
+                        displayWord = wordToPlace,
+                        isReversed = shouldReverse,
+                        startRow = placement.row,
+                        startCol = placement.col,
+                        direction = placement.direction
+                    )
+                )
+            }
+        }
+
+        // Fill empty cells with random letters
+        fillEmptyCells(grid, adjustedConfig.distractorLetters)
+
+        return GameBoard(
+            grid = grid,
+            placedWords = placedWords,
+            level = difficultyLevel,
+            gridSize = gridSize,
+            category = category.name
+        )
     }
 }
 
