@@ -19,6 +19,8 @@ A modern Android word search game with category-based progression, backend-drive
 - **Image Loading**: Coil
 - **Navigation**: Jetpack Navigation Compose
 - **State Management**: ViewModel + StateFlow
+- **Ads**: Google AdMob (interstitial ads)
+- **In-App Purchases**: Google Play Billing Library
 
 ### Backend
 - **Framework**: Spring Boot (Kotlin) or Node.js (TypeScript)
@@ -117,6 +119,8 @@ CREATE TABLE users (
     total_words_found INTEGER DEFAULT 0,
     total_puzzles_completed INTEGER DEFAULT 0,
     current_level INTEGER DEFAULT 1,
+    is_premium BOOLEAN DEFAULT false,
+    premium_expires_at TIMESTAMP, -- NULL for lifetime, future date for subscription
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -208,6 +212,53 @@ CREATE TABLE leaderboard (
 );
 ```
 
+#### Premium Subscription Table
+```sql
+CREATE TABLE premium_subscriptions (
+    id UUID PRIMARY KEY,
+    user_id UUID REFERENCES users(id),
+    is_premium BOOLEAN DEFAULT false,
+    purchase_date TIMESTAMP,
+    expiry_date TIMESTAMP, -- NULL for lifetime purchase
+    purchase_platform VARCHAR(50), -- 'GOOGLE_PLAY', 'PROMO', 'ADMIN'
+    purchase_token VARCHAR(255), -- For Google Play verification
+    auto_renew BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id)
+);
+```
+
+#### Ad View Tracking Table
+```sql
+CREATE TABLE ad_views (
+    id UUID PRIMARY KEY,
+    user_id UUID REFERENCES users(id),
+    viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ad_type VARCHAR(50), -- 'INTERSTITIAL', 'REWARDED'
+    ad_unit_id VARCHAR(100),
+    session_id VARCHAR(100) -- To group ads by session
+);
+
+-- Index for efficient hourly ad counting
+CREATE INDEX idx_ad_views_user_time ON ad_views(user_id, viewed_at);
+```
+
+#### Ad Session State Table
+```sql
+CREATE TABLE ad_session_state (
+    id UUID PRIMARY KEY,
+    user_id UUID REFERENCES users(id),
+    session_start_time TIMESTAMP NOT NULL,
+    ads_watched_count INTEGER DEFAULT 0,
+    ads_remaining INTEGER DEFAULT 5,
+    session_expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, session_start_time)
+);
+```
+
 ---
 
 ## 4. API Endpoints
@@ -239,6 +290,15 @@ CREATE TABLE leaderboard (
 - `GET /api/leaderboard/global` - Get global leaderboard
 - `GET /api/leaderboard/friends` - Get friends leaderboard
 - `GET /api/leaderboard/category/{id}` - Get category-specific leaderboard
+
+### Monetization & Ads
+- `GET /api/ads/should-show` - Check if user should see an ad
+- `POST /api/ads/view` - Record ad view
+- `GET /api/ads/session-status` - Get current ad session status (ads remaining, time until reset)
+- `POST /api/premium/purchase` - Verify and activate premium subscription
+- `GET /api/premium/status` - Get user's premium subscription status
+- `POST /api/premium/restore` - Restore previous purchase (for device changes)
+- `DELETE /api/premium/cancel` - Cancel auto-renewal (handle via Google Play)
 
 ---
 
@@ -336,6 +396,21 @@ CREATE TABLE leaderboard (
 - [ ] Implement unlock animations
 
 ### Phase 4: Polish & Features (Weeks 7-8)
+**Backend:**
+- [ ] Implement ad tracking APIs
+- [ ] Create premium subscription verification
+- [ ] Add Google Play purchase validation
+- [ ] Build ad session management logic
+
+**Android:**
+- [ ] Integrate Google AdMob SDK
+- [ ] Implement interstitial ad loading and display
+- [ ] Create ad session tracking UI (ads remaining indicator)
+- [ ] Implement Google Play Billing
+- [ ] Build premium purchase flow
+- [ ] Add restore purchases functionality
+- [ ] Create premium benefits UI
+
 **Both:**
 - [ ] Implement hints system
 - [ ] Add daily challenges
@@ -591,6 +666,83 @@ fun calculateLevel(totalPuzzlesCompleted: Int, totalWordsFound: Int): Int {
 }
 ```
 
+### Ad Management Algorithm
+
+```kotlin
+/**
+ * Determines if an ad should be shown to the user
+ */
+data class AdSessionStatus(
+    val shouldShowAd: Boolean,
+    val adsRemaining: Int,
+    val minutesUntilReset: Int,
+    val isInAdFreeWindow: Boolean
+)
+
+fun shouldShowAd(userId: UUID, isPremium: Boolean): AdSessionStatus {
+    // Premium users never see ads
+    if (isPremium) {
+        return AdSessionStatus(
+            shouldShowAd = false,
+            adsRemaining = 0,
+            minutesUntilReset = 0,
+            isInAdFreeWindow = true
+        )
+    }
+
+    val now = Instant.now()
+    val oneHourAgo = now.minus(60, ChronoUnit.MINUTES)
+
+    // Get ad views in the last hour
+    val recentAdViews = adViewRepository.findByUserIdAndViewedAtAfter(userId, oneHourAgo)
+    val adsWatchedInLastHour = recentAdViews.size
+
+    // Check if user is in ad-free window
+    if (adsWatchedInLastHour >= 5) {
+        val firstAdTime = recentAdViews.minByOrNull { it.viewedAt }?.viewedAt
+        val adFreeWindowEnd = firstAdTime?.plus(60, ChronoUnit.MINUTES)
+
+        if (now.isBefore(adFreeWindowEnd)) {
+            val minutesRemaining = ChronoUnit.MINUTES.between(now, adFreeWindowEnd)
+            return AdSessionStatus(
+                shouldShowAd = false,
+                adsRemaining = 0,
+                minutesUntilReset = minutesRemaining.toInt(),
+                isInAdFreeWindow = true
+            )
+        }
+    }
+
+    // User should see an ad
+    val adsRemaining = 5 - adsWatchedInLastHour
+    return AdSessionStatus(
+        shouldShowAd = adsRemaining > 0,
+        adsRemaining = maxOf(0, adsRemaining),
+        minutesUntilReset = 60,
+        isInAdFreeWindow = false
+    )
+}
+
+/**
+ * Records an ad view
+ */
+fun recordAdView(userId: UUID, adType: AdType, adUnitId: String): Boolean {
+    val adView = AdView(
+        userId = userId,
+        viewedAt = Instant.now(),
+        adType = adType,
+        adUnitId = adUnitId,
+        sessionId = UUID.randomUUID().toString()
+    )
+
+    adViewRepository.save(adView)
+
+    // Check if this completes the ad requirement for the hour
+    val status = shouldShowAd(userId, isPremium = false)
+    return status.isInAdFreeWindow
+}
+```
+
 ---
 
 ## 9. Security Considerations
@@ -704,11 +856,68 @@ fun `should display puzzle grid`() {
 - Power-ups and boosters
 - Animation and visual effects upgrades
 
-### Monetization Options
-- Free with ads
-- Premium subscription (ad-free, extra hints, exclusive categories)
-- In-app purchases (hint packs, theme packs)
-- Rewarded video ads for hints
+### Monetization Strategy (IMPLEMENTED)
+
+#### Free Tier with Smart Ad System
+**Hourly Ad Cap System:**
+- Users see a **maximum of 5 ads per hour**
+- After watching 5 ads, users get **1 hour of uninterrupted gameplay**
+- Ads are interstitial (shown between puzzles, not during gameplay)
+- Timer resets exactly 60 minutes after the first ad in the session
+- Users can see their ad status: "X ads remaining until ad-free hour"
+
+**Ad Placement Strategy:**
+- After completing a puzzle (before returning to puzzle list)
+- When starting a new category
+- **Never** interrupt active puzzle gameplay
+- **Never** shown to premium users
+
+**User Experience:**
+```
+Puzzle Completed → Ad 1/5 → Puzzle Selection → Puzzle → Ad 2/5 → ...
+→ Ad 5/5 → ✓ Ad-Free for 60 minutes → No Ads → No Ads → ...
+→ (After 60 min) → Ad 1/5 → ...
+```
+
+#### Premium Version ($2.99 one-time purchase)
+**Benefits:**
+- ✓ Completely ad-free experience forever
+- ✓ 2x daily hints (10 hints vs 5 hints)
+- ✓ Exclusive premium categories
+- ✓ Early access to new content
+- ✓ Premium badge on leaderboard
+- ✓ Cloud save backup (auto-sync progress)
+
+**Purchase Options:**
+- One-time purchase: $2.99 (lifetime)
+- Alternative: $0.99/month subscription (optional, configurable)
+
+#### Rewarded Video Ads (Optional Income Boost)
+- Users can **choose** to watch a rewarded ad for:
+  - +1 hint for current puzzle
+  - +50 bonus points
+  - Skip the hourly ad countdown (reset ad counter early)
+- Completely optional, never forced
+- Available even for premium users (for hints/points, not to remove ads)
+
+#### Revenue Projections
+**Assumptions:**
+- 10,000 active users
+- 60% free tier, 40% premium conversion over time
+- Average 3 ads per session, 2 sessions per day
+- $5 CPM (cost per thousand impressions)
+
+**Estimated Monthly Revenue:**
+- Free tier ads: 6,000 users × 3 ads × 2 sessions × 30 days × $5/1000 = $5,400
+- Premium purchases: 4,000 users × $2.99 × 10% monthly = $1,196
+- **Total: ~$6,600/month** (grows with user base)
+
+#### Implementation Notes
+- Use Google AdMob for ad serving
+- Implement Google Play Billing Library v5+ for purchases
+- Server-side purchase verification (prevent fraud)
+- Graceful handling of ad load failures (never block gameplay)
+- A/B testing capability for ad frequency (can adjust 5 ads per hour)
 
 ---
 
@@ -726,11 +935,37 @@ fun `should display puzzle grid`() {
 - Most popular categories
 - Drop-off points
 
+### Monetization Metrics
+- **Ad Performance:**
+  - Ad impressions per user per day
+  - Ad fill rate (successful ad loads)
+  - Average ads watched per session
+  - Ad-free window usage (% of users reaching 5 ads)
+  - CPM (Cost Per Thousand impressions)
+  - eCPM (Effective CPM)
+
+- **Premium Conversion:**
+  - Free-to-Premium conversion rate (target: 3-5%)
+  - Time to conversion (days before purchase)
+  - Purchase drop-off rate
+  - Premium user retention rate
+  - Revenue per user (RPU)
+  - Average Revenue Per User (ARPU)
+  - Average Revenue Per Paying User (ARPPU)
+
+- **Revenue Tracking:**
+  - Daily/Monthly ad revenue
+  - Daily/Monthly premium revenue
+  - Lifetime Value (LTV) per user
+  - Cost per acquisition (CPA) vs LTV ratio
+
 ### Technical Metrics
 - API response time (< 200ms)
 - App crash rate (< 1%)
 - App startup time (< 2s)
 - API uptime (99.9%)
+- Ad load time (< 3s)
+- Purchase verification success rate (> 99%)
 
 ---
 
