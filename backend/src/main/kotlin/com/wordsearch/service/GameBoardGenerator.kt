@@ -57,7 +57,7 @@ class GameBoardGenerator {
     /**
      * Gets difficulty configuration based on current level
      */
-    private fun getDifficultyConfig(level: Int): DifficultyConfig {
+    fun getDifficultyConfig(level: Int): DifficultyConfig {
         return when {
             level in 1..5 -> DifficultyConfig(
                 gridSize = 10,
