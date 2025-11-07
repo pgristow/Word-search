@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Word Search</string>
+
+    <!-- Auth -->
+    <string name="login">Login</string>
+    <string name="register">Register</string>
+    <string name="email">Email</string>
+    <string name="username">Username</string>
+    <string name="password">Password</string>
+    <string name="confirm_password">Confirm Password</string>
+    <string name="forgot_password">Forgot Password?</string>
+    <string name="dont_have_account">Don\'t have an account?</string>
+    <string name="already_have_account">Already have an account?</string>
+
+    <!-- Game -->
+    <string name="categories">Categories</string>
+    <string name="level">Level %1$d</string>
+    <string name="score">Score: %1$d</string>
+    <string name="combo">Combo: %1$dx</string>
+    <string name="words_found">Words Found: %1$d/%2$d</string>
+    <string name="time">Time: %1$s</string>
+    <string name="pause">Pause</string>
+    <string name="resume">Resume</string>
+    <string name="quit">Quit</string>
+    <string name="boss_level">BOSS LEVEL!</string>
+
+    <!-- Achievements -->
+    <string name="achievements">Achievements</string>
+    <string name="unlocked">Unlocked</string>
+    <string name="locked">Locked</string>
+    <string name="progress">Progress: %1$d/%2$d</string>
+
+    <!-- Daily Challenge -->
+    <string name="daily_challenge">Daily Challenge</string>
+    <string name="complete_daily">Complete Daily Challenge</string>
+    <string name="time_remaining">Time Remaining: %1$s</string>
+
+    <!-- Leaderboard -->
+    <string name="leaderboard">Leaderboard</string>
+    <string name="rank">Rank #%1$d</string>
+    <string name="global">Global</string>
+    <string name="friends">Friends</string>
+
+    <!-- Premium -->
+    <string name="go_premium">Go Premium</string>
+    <string name="remove_ads">Remove Ads</string>
+    <string name="premium_features">Premium Features</string>
+    <string name="premium_price">$2.99</string>
+    <string name="restore_purchase">Restore Purchase</string>
+
+    <!-- Ads -->
+    <string name="ad_free_hour">Ad-Free Hour!</string>
+    <string name="ads_remaining">%1$d ads until ad-free hour</string>
+
+    <!-- Common -->
+    <string name="loading">Loading...</string>
+    <string name="error">Error</string>
+    <string name="retry">Retry</string>
+    <string name="cancel">Cancel</string>
+    <string name="ok">OK</string>
+    <string name="settings">Settings</string>
+    <string name="logout">Logout</string>
+</resources>
