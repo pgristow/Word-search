@@ -182,7 +182,7 @@ fun RegisterScreen(
                 onDone = {
                     focusManager.clearFocus()
                     if (isFormValid) {
-                        viewModel.register(username, email, password)
+                        viewModel.register(username, email, password, confirmPassword)
                     }
                 }
             ),
@@ -221,7 +221,7 @@ fun RegisterScreen(
         Button(
             onClick = {
                 focusManager.clearFocus()
-                viewModel.register(username, email, password)
+                viewModel.register(username, email, password, confirmPassword)
             },
             modifier = Modifier
                 .fillMaxWidth()
