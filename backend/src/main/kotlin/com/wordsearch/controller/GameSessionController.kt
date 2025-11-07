@@ -3,6 +3,7 @@ package com.wordsearch.controller
 import com.wordsearch.dto.ErrorResponse
 import com.wordsearch.dto.StartSessionRequest
 import com.wordsearch.dto.SubmitWordRequest
+import com.wordsearch.model.GameMode
 import com.wordsearch.service.GameSessionService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -24,9 +25,15 @@ class GameSessionController(
     ): ResponseEntity<Any> {
         return try {
             val userId = authentication.principal as String
+            val gameMode = try {
+                GameMode.valueOf(request.gameMode.uppercase())
+            } catch (e: IllegalArgumentException) {
+                GameMode.CLASSIC // Default to CLASSIC if invalid mode
+            }
             val response = gameSessionService.startNewSession(
                 userId = UUID.fromString(userId),
-                categoryId = UUID.fromString(request.categoryId)
+                categoryId = UUID.fromString(request.categoryId),
+                gameMode = gameMode
             )
             ResponseEntity.ok(response)
         } catch (e: IllegalArgumentException) {
@@ -103,6 +110,58 @@ class GameSessionController(
                     .status(HttpStatus.NOT_FOUND)
                     .body(ErrorResponse("No active session found"))
             }
+        } catch (e: Exception) {
+            ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorResponse(e.message ?: "Internal server error"))
+        }
+    }
+
+    @PostMapping("/{sessionId}/save")
+    fun saveCasualProgress(
+        @PathVariable sessionId: String,
+        authentication: Authentication
+    ): ResponseEntity<Any> {
+        return try {
+            val userId = authentication.principal as String
+            val summary = gameSessionService.saveCasualProgress(
+                sessionId = UUID.fromString(sessionId),
+                userId = UUID.fromString(userId)
+            )
+            ResponseEntity.ok(summary)
+        } catch (e: IllegalArgumentException) {
+            ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse(e.message ?: "Failed to save progress"))
+        } catch (e: Exception) {
+            ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorResponse(e.message ?: "Internal server error"))
+        }
+    }
+
+    @PostMapping("/{sessionId}/resume")
+    fun resumeCasualGame(
+        @PathVariable sessionId: String,
+        authentication: Authentication
+    ): ResponseEntity<Any> {
+        return try {
+            val userId = authentication.principal as String
+            val session = gameSessionService.resumeCasualGame(
+                sessionId = UUID.fromString(sessionId),
+                userId = UUID.fromString(userId)
+            )
+            if (session != null) {
+                ResponseEntity.ok(session)
+            } else {
+                ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(ErrorResponse("Session not found"))
+            }
+        } catch (e: IllegalArgumentException) {
+            ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse(e.message ?: "Failed to resume game"))
         } catch (e: Exception) {
             ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)

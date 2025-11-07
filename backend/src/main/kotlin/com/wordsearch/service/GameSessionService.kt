@@ -17,11 +17,13 @@ class GameSessionService(
 ) {
 
     @Transactional
-    fun startNewSession(userId: UUID, categoryId: UUID): GameSessionResponse {
-        // End any active sessions for this user
-        val activeSession = gameSessionRepository.findByUserIdAndIsActive(userId, true)
-        if (activeSession != null) {
-            endSession(activeSession.id, userId)
+    fun startNewSession(userId: UUID, categoryId: UUID, gameMode: GameMode = GameMode.CLASSIC): GameSessionResponse {
+        // End any active sessions for this user (only for classic mode)
+        if (gameMode == GameMode.CLASSIC) {
+            val activeSession = gameSessionRepository.findByUserIdAndIsActive(userId, true)
+            if (activeSession != null) {
+                endSession(activeSession.id, userId)
+            }
         }
 
         // Get or create user progress
@@ -36,7 +38,8 @@ class GameSessionService(
         val session = GameSession(
             userId = userId,
             startingLevel = userProgress.currentLevel,
-            sessionStart = LocalDateTime.now()
+            sessionStart = LocalDateTime.now(),
+            gameMode = gameMode
         )
         val savedSession = gameSessionRepository.save(session)
 
@@ -65,7 +68,8 @@ class GameSessionService(
             },
             currentScore = 0,
             currentCombo = 0,
-            totalWordsFound = 0
+            totalWordsFound = 0,
+            gameMode = gameMode.name
         )
     }
 
@@ -89,17 +93,25 @@ class GameSessionService(
             throw IllegalArgumentException("Session is not active")
         }
 
-        // Calculate current combo (simplified - would need to track time between finds)
-        val currentCombo = session.highestCombo + 1
+        // Mode-specific scoring
+        val score: Int
+        val currentCombo: Int
 
-        // Calculate score
-        val score = gameBoardGenerator.calculateWordScore(
-            word = word,
-            isReversed = isReversed,
-            isDiagonal = isDiagonal,
-            timeElapsed = timeElapsed,
-            currentCombo = currentCombo
-        )
+        if (session.gameMode == GameMode.CASUAL) {
+            // Casual mode: Simple scoring, no combos or time bonuses
+            score = calculateCasualScore(word)
+            currentCombo = 0
+        } else {
+            // Classic mode: Full competitive scoring
+            currentCombo = session.highestCombo + 1
+            score = gameBoardGenerator.calculateWordScore(
+                word = word,
+                isReversed = isReversed,
+                isDiagonal = isDiagonal,
+                timeElapsed = timeElapsed,
+                currentCombo = currentCombo
+            )
+        }
 
         // Update session
         val updatedSession = session.copy(
@@ -163,6 +175,19 @@ class GameSessionService(
         )
         gameSessionRepository.save(updatedSession)
 
+        // Update user progress for casual mode puzzle completion
+        if (session.gameMode == GameMode.CASUAL) {
+            val userProgress = userProgressRepository.findByUserId(userId)
+                ?: throw IllegalArgumentException("User progress not found")
+
+            val updatedProgress = userProgress.copy(
+                casualPuzzlesCompleted = userProgress.casualPuzzlesCompleted + 1,
+                lastPlayedAt = LocalDateTime.now(),
+                updatedAt = LocalDateTime.now()
+            )
+            userProgressRepository.save(updatedProgress)
+        }
+
         return SessionSummary(
             sessionId = sessionId.toString(),
             startingLevel = session.startingLevel,
@@ -190,8 +215,75 @@ class GameSessionService(
             words = emptyList(),
             currentScore = session.totalScore,
             currentCombo = session.highestCombo,
-            totalWordsFound = session.wordsFound
+            totalWordsFound = session.wordsFound,
+            gameMode = session.gameMode.name
         )
+    }
+
+    @Transactional
+    fun saveCasualProgress(sessionId: UUID, userId: UUID): SessionSummary {
+        val session = gameSessionRepository.findById(sessionId)
+            .orElseThrow { IllegalArgumentException("Session not found") }
+
+        if (session.userId != userId) {
+            throw IllegalArgumentException("Unauthorized")
+        }
+
+        if (session.gameMode != GameMode.CASUAL) {
+            throw IllegalArgumentException("Save/resume is only available for casual mode")
+        }
+
+        val updatedSession = session.copy(
+            isPaused = true,
+            isActive = false
+        )
+        gameSessionRepository.save(updatedSession)
+
+        return SessionSummary(
+            sessionId = sessionId.toString(),
+            startingLevel = session.startingLevel,
+            endingLevel = session.startingLevel, // Level doesn't change in casual
+            totalScore = session.totalScore,
+            wordsFound = session.wordsFound,
+            highestCombo = 0, // No combos in casual
+            duration = java.time.Duration.between(session.sessionStart, LocalDateTime.now()).toMinutes()
+        )
+    }
+
+    @Transactional
+    fun resumeCasualGame(sessionId: UUID, userId: UUID): GameSessionResponse? {
+        val session = gameSessionRepository.findById(sessionId)
+            .orElseThrow { IllegalArgumentException("Session not found") }
+
+        if (session.userId != userId) {
+            throw IllegalArgumentException("Unauthorized")
+        }
+
+        if (session.gameMode != GameMode.CASUAL) {
+            throw IllegalArgumentException("Resume is only available for casual mode")
+        }
+
+        if (!session.isPaused) {
+            throw IllegalArgumentException("Session is not paused")
+        }
+
+        val updatedSession = session.copy(
+            isPaused = false,
+            isActive = true
+        )
+        gameSessionRepository.save(updatedSession)
+
+        // Return active session response
+        return getActiveSession(userId)
+    }
+
+    /**
+     * Calculate score for casual mode
+     * Simple scoring: 100 points per character in the word
+     * No bonuses for reversed, diagonal, speed, or combos
+     */
+    private fun calculateCasualScore(word: String): Int {
+        return 100 * word.length
     }
 }
 
@@ -205,7 +297,8 @@ data class GameSessionResponse(
     val words: List<WordInfo>,
     val currentScore: Int,
     val currentCombo: Int,
-    val totalWordsFound: Int
+    val totalWordsFound: Int,
+    val gameMode: String = "CLASSIC"
 )
 
 data class WordInfo(

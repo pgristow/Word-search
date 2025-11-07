@@ -27,7 +27,8 @@ class UserProgressService(
             totalReversedWordsFound = progress.totalReversedWordsFound,
             currentStreakDays = progress.currentStreakDays,
             longestStreakDays = progress.longestStreakDays,
-            lastPlayedAt = progress.lastPlayedAt?.toString()
+            lastPlayedAt = progress.lastPlayedAt?.toString(),
+            casualPuzzlesCompleted = progress.casualPuzzlesCompleted
         )
     }
 
@@ -138,7 +139,8 @@ data class UserProgressResponse(
     val totalReversedWordsFound: Int,
     val currentStreakDays: Int,
     val longestStreakDays: Int,
-    val lastPlayedAt: String?
+    val lastPlayedAt: String?,
+    val casualPuzzlesCompleted: Int = 0
 )
 
 data class UserStatistics(

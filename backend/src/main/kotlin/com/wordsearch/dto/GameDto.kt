@@ -5,7 +5,8 @@ import jakarta.validation.constraints.NotBlank
 // Game Session DTOs
 data class StartSessionRequest(
     @field:NotBlank(message = "Category ID is required")
-    val categoryId: String
+    val categoryId: String,
+    val gameMode: String = "CLASSIC" // CLASSIC or CASUAL
 )
 
 data class SubmitWordRequest(
@@ -41,7 +42,8 @@ data class GameSessionResponse(
     val targetWordCount: Int,
     val currentScore: Int = 0,
     val wordsFound: Int = 0,
-    val currentCombo: Int = 0
+    val currentCombo: Int = 0,
+    val gameMode: String = "CLASSIC" // CLASSIC or CASUAL
 )
 
 data class WordInfo(
@@ -57,7 +59,8 @@ data class UserProgressResponse(
     val highestCombo: Int,
     val currentStreak: Int,
     val longestStreak: Int,
-    val bossLevelsCompleted: Int
+    val bossLevelsCompleted: Int,
+    val casualPuzzlesCompleted: Int = 0
 )
 
 data class UserStatistics(
