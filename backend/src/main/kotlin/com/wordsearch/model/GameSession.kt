@@ -39,5 +39,12 @@ data class GameSession(
     val bossLevelsCompleted: Int = 0,
 
     @Column(name = "is_active")
-    val isActive: Boolean = true
+    val isActive: Boolean = true,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "game_mode")
+    val gameMode: GameMode = GameMode.CLASSIC,
+
+    @Column(name = "is_paused")
+    val isPaused: Boolean = false
 )

@@ -36,6 +36,9 @@ data class UserProgress(
     @Column(name = "total_reversed_words_found")
     val totalReversedWordsFound: Int = 0,
 
+    @Column(name = "casual_puzzles_completed")
+    val casualPuzzlesCompleted: Int = 0,
+
     @Column(name = "last_played_at")
     val lastPlayedAt: LocalDateTime? = null,
 
