@@ -2,6 +2,12 @@ package com.wordsearch.data.model
 
 import com.google.gson.annotations.SerializedName
 
+// Game Mode
+enum class GameMode {
+    CLASSIC,
+    CASUAL
+}
+
 // Category
 data class Category(
     @SerializedName("id")
@@ -39,7 +45,9 @@ data class GameSession(
     @SerializedName("wordsFound")
     val wordsFound: Int,
     @SerializedName("currentCombo")
-    val currentCombo: Int
+    val currentCombo: Int,
+    @SerializedName("gameMode")
+    val gameMode: String = "CLASSIC"
 )
 
 data class WordInfo(
@@ -97,7 +105,9 @@ data class UserProgress(
     @SerializedName("longestStreak")
     val longestStreak: Int,
     @SerializedName("bossLevelsCompleted")
-    val bossLevelsCompleted: Int
+    val bossLevelsCompleted: Int,
+    @SerializedName("casualPuzzlesCompleted")
+    val casualPuzzlesCompleted: Int = 0
 )
 
 // Leaderboard

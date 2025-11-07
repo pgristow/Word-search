@@ -35,6 +35,7 @@ import com.wordsearch.ui.theme.WordSelected
 @Composable
 fun GameScreen(
     categoryId: String,
+    gameMode: String = "CLASSIC",
     onNavigateBack: () -> Unit,
     onGameComplete: () -> Unit,
     viewModel: GameViewModel = hiltViewModel()
@@ -42,7 +43,7 @@ fun GameScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(Unit) {
-        viewModel.startGame(categoryId)
+        viewModel.startGame(categoryId, gameMode)
     }
 
     Scaffold(

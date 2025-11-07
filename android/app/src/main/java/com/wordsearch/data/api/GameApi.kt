@@ -103,7 +103,10 @@ interface GameApi {
 }
 
 // Additional request/response models
-data class StartSessionRequest(val categoryId: String)
+data class StartSessionRequest(
+    val categoryId: String,
+    val gameMode: String = "CLASSIC"
+)
 data class SessionEndResponse(val finalScore: Int, val wordsFound: Int, val sessionDuration: Int)
 data class UserStatistics(val totalGamesPlayed: Int, val averageScore: Int, val favoriteCategory: String)
 data class StreakResponse(val currentStreak: Int, val message: String)

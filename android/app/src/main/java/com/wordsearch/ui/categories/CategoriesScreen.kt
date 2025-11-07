@@ -21,7 +21,7 @@ import com.wordsearch.data.model.Category
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoriesScreen(
-    onNavigateToGame: (String) -> Unit,
+    onNavigateToGame: (String, String) -> Unit,
     onNavigateToAchievements: () -> Unit,
     onNavigateToLeaderboard: () -> Unit,
     onNavigateToDailyChallenge: () -> Unit,
@@ -175,7 +175,7 @@ fun CategoriesScreen(
                                 CategoryCard(
                                     category = category,
                                     userLevel = userProgress?.currentLevel ?: 1,
-                                    onClick = { onNavigateToGame(category.id) }
+                                    onClick = { onNavigateToGame(category.id, category.name) }
                                 )
                             }
                         }

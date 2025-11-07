@@ -32,12 +32,12 @@ class GameViewModel @Inject constructor(
     private var gameStartTime: Long = 0
     private var currentSession: GameSession? = null
 
-    fun startGame(categoryId: String) {
+    fun startGame(categoryId: String, gameMode: String = "CLASSIC") {
         viewModelScope.launch {
             _uiState.value = GameUiState.Loading
 
             try {
-                val result = gameRepository.startSession(categoryId)
+                val result = gameRepository.startSession(categoryId, gameMode)
                 if (result.isSuccess) {
                     val session = result.getOrNull()!!
                     currentSession = session

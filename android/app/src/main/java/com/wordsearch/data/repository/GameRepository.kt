@@ -28,9 +28,9 @@ class GameRepository @Inject constructor(
     }
 
     // Game Session
-    suspend fun startSession(categoryId: String): Result<GameSession> = withContext(Dispatchers.IO) {
+    suspend fun startSession(categoryId: String, gameMode: String = "CLASSIC"): Result<GameSession> = withContext(Dispatchers.IO) {
         try {
-            val response = gameApi.startSession(StartSessionRequest(categoryId))
+            val response = gameApi.startSession(StartSessionRequest(categoryId, gameMode))
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {

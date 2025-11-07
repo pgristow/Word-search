@@ -9,6 +9,7 @@ import androidx.navigation.navArgument
 import com.wordsearch.ui.auth.LoginScreen
 import com.wordsearch.ui.auth.RegisterScreen
 import com.wordsearch.ui.categories.CategoriesScreen
+import com.wordsearch.ui.mode.ModeSelectionScreen
 import com.wordsearch.ui.game.GameScreen
 import com.wordsearch.ui.achievements.AchievementsScreen
 import com.wordsearch.ui.leaderboard.LeaderboardScreen
@@ -18,8 +19,11 @@ sealed class Screen(val route: String) {
     object Login : Screen("login")
     object Register : Screen("register")
     object Categories : Screen("categories")
-    object Game : Screen("game/{categoryId}") {
-        fun createRoute(categoryId: String) = "game/$categoryId"
+    object ModeSelection : Screen("mode_selection/{categoryId}/{categoryName}") {
+        fun createRoute(categoryId: String, categoryName: String) = "mode_selection/$categoryId/$categoryName"
+    }
+    object Game : Screen("game/{categoryId}/{gameMode}") {
+        fun createRoute(categoryId: String, gameMode: String) = "game/$categoryId/$gameMode"
     }
     object Achievements : Screen("achievements")
     object Leaderboard : Screen("leaderboard")
@@ -64,8 +68,8 @@ fun NavGraph(
 
         composable(Screen.Categories.route) {
             CategoriesScreen(
-                onNavigateToGame = { categoryId ->
-                    navController.navigate(Screen.Game.createRoute(categoryId))
+                onNavigateToGame = { categoryId, categoryName ->
+                    navController.navigate(Screen.ModeSelection.createRoute(categoryId, categoryName))
                 },
                 onNavigateToAchievements = {
                     navController.navigate(Screen.Achievements.route)
@@ -85,12 +89,38 @@ fun NavGraph(
         }
 
         composable(
-            route = Screen.Game.route,
-            arguments = listOf(navArgument("categoryId") { type = NavType.StringType })
+            route = Screen.ModeSelection.route,
+            arguments = listOf(
+                navArgument("categoryId") { type = NavType.StringType },
+                navArgument("categoryName") { type = NavType.StringType }
+            )
         ) { backStackEntry ->
             val categoryId = backStackEntry.arguments?.getString("categoryId") ?: ""
+            val categoryName = backStackEntry.arguments?.getString("categoryName") ?: ""
+            ModeSelectionScreen(
+                categoryId = categoryId,
+                categoryName = categoryName,
+                onModeSelected = { gameMode ->
+                    navController.navigate(Screen.Game.createRoute(categoryId, gameMode.name))
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(
+            route = Screen.Game.route,
+            arguments = listOf(
+                navArgument("categoryId") { type = NavType.StringType },
+                navArgument("gameMode") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val categoryId = backStackEntry.arguments?.getString("categoryId") ?: ""
+            val gameMode = backStackEntry.arguments?.getString("gameMode") ?: "CLASSIC"
             GameScreen(
                 categoryId = categoryId,
+                gameMode = gameMode,
                 onNavigateBack = {
                     navController.popBackStack()
                 },
