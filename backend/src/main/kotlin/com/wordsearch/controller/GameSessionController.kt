@@ -1,9 +1,13 @@
 package com.wordsearch.controller
 
 import com.wordsearch.dto.ErrorResponse
+import com.wordsearch.dto.StartSessionRequest
+import com.wordsearch.dto.SubmitWordRequest
 import com.wordsearch.service.GameSessionService
+import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.*
 import java.util.UUID
 
@@ -15,13 +19,14 @@ class GameSessionController(
 
     @PostMapping("/start")
     fun startSession(
-        @RequestParam userId: String,
-        @RequestParam categoryId: String
+        @Valid @RequestBody request: StartSessionRequest,
+        authentication: Authentication
     ): ResponseEntity<Any> {
         return try {
+            val userId = authentication.principal as String
             val response = gameSessionService.startNewSession(
                 userId = UUID.fromString(userId),
-                categoryId = UUID.fromString(categoryId)
+                categoryId = UUID.fromString(request.categoryId)
             )
             ResponseEntity.ok(response)
         } catch (e: IllegalArgumentException) {
@@ -38,20 +43,18 @@ class GameSessionController(
     @PostMapping("/{sessionId}/submit-word")
     fun submitWord(
         @PathVariable sessionId: String,
-        @RequestParam userId: String,
-        @RequestParam word: String,
-        @RequestParam(defaultValue = "false") isReversed: Boolean,
-        @RequestParam(defaultValue = "false") isDiagonal: Boolean,
-        @RequestParam(defaultValue = "0") timeElapsed: Int
+        @Valid @RequestBody request: SubmitWordRequest,
+        authentication: Authentication
     ): ResponseEntity<Any> {
         return try {
+            val userId = authentication.principal as String
             val response = gameSessionService.submitWord(
                 sessionId = UUID.fromString(sessionId),
                 userId = UUID.fromString(userId),
-                word = word.uppercase(),
-                isReversed = isReversed,
-                isDiagonal = isDiagonal,
-                timeElapsed = timeElapsed
+                word = request.word.uppercase(),
+                isReversed = request.isReversed,
+                isDiagonal = request.isDiagonal,
+                timeElapsed = request.timeElapsed
             )
             ResponseEntity.ok(response)
         } catch (e: IllegalArgumentException) {
@@ -68,9 +71,10 @@ class GameSessionController(
     @PostMapping("/{sessionId}/end")
     fun endSession(
         @PathVariable sessionId: String,
-        @RequestParam userId: String
+        authentication: Authentication
     ): ResponseEntity<Any> {
         return try {
+            val userId = authentication.principal as String
             val summary = gameSessionService.endSession(
                 sessionId = UUID.fromString(sessionId),
                 userId = UUID.fromString(userId)
@@ -88,8 +92,9 @@ class GameSessionController(
     }
 
     @GetMapping("/active")
-    fun getActiveSession(@RequestParam userId: String): ResponseEntity<Any> {
+    fun getActiveSession(authentication: Authentication): ResponseEntity<Any> {
         return try {
+            val userId = authentication.principal as String
             val session = gameSessionService.getActiveSession(UUID.fromString(userId))
             if (session != null) {
                 ResponseEntity.ok(session)

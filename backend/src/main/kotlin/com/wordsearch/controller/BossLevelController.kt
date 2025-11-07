@@ -4,6 +4,7 @@ import com.wordsearch.dto.ErrorResponse
 import com.wordsearch.service.BossLevelService
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.*
 import java.util.UUID
 
@@ -30,12 +31,13 @@ class BossLevelController(
 
     @PostMapping("/start")
     fun startBossLevel(
-        @RequestParam userId: String,
         @RequestParam sessionId: String,
         @RequestParam level: Int,
-        @RequestParam categoryId: String
+        @RequestParam categoryId: String,
+        authentication: Authentication
     ): ResponseEntity<Any> {
         return try {
+            val userId = authentication.principal as String
             val response = bossLevelService.startBossLevel(
                 userId = UUID.fromString(userId),
                 sessionId = UUID.fromString(sessionId),
@@ -57,10 +59,11 @@ class BossLevelController(
     @PostMapping("/{attemptId}/shuffle")
     fun shuffleBoard(
         @PathVariable attemptId: String,
-        @RequestParam userId: String,
-        @RequestBody foundWords: List<String>
+        @RequestBody foundWords: List<String>,
+        authentication: Authentication
     ): ResponseEntity<Any> {
         return try {
+            val userId = authentication.principal as String
             val response = bossLevelService.shuffleBoard(
                 attemptId = UUID.fromString(attemptId),
                 userId = UUID.fromString(userId),
@@ -81,11 +84,12 @@ class BossLevelController(
     @PostMapping("/{attemptId}/complete")
     fun completeBossLevel(
         @PathVariable attemptId: String,
-        @RequestParam userId: String,
         @RequestParam wordsFound: Int,
-        @RequestParam timeTaken: Int
+        @RequestParam timeTaken: Int,
+        authentication: Authentication
     ): ResponseEntity<Any> {
         return try {
+            val userId = authentication.principal as String
             val response = bossLevelService.completeBossLevel(
                 attemptId = UUID.fromString(attemptId),
                 userId = UUID.fromString(userId),
@@ -105,8 +109,9 @@ class BossLevelController(
     }
 
     @GetMapping("/statistics")
-    fun getBossStatistics(@RequestParam userId: String): ResponseEntity<Any> {
+    fun getBossStatistics(authentication: Authentication): ResponseEntity<Any> {
         return try {
+            val userId = authentication.principal as String
             val stats = bossLevelService.getBossStatistics(UUID.fromString(userId))
             ResponseEntity.ok(stats)
         } catch (e: Exception) {

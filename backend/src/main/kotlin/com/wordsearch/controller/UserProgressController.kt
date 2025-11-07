@@ -4,6 +4,7 @@ import com.wordsearch.dto.ErrorResponse
 import com.wordsearch.service.UserProgressService
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.*
 import java.util.UUID
 
@@ -14,8 +15,9 @@ class UserProgressController(
 ) {
 
     @GetMapping
-    fun getUserProgress(@RequestParam userId: String): ResponseEntity<Any> {
+    fun getUserProgress(authentication: Authentication): ResponseEntity<Any> {
         return try {
+            val userId = authentication.principal as String
             val progress = userProgressService.getUserProgress(UUID.fromString(userId))
             ResponseEntity.ok(progress)
         } catch (e: IllegalArgumentException) {
@@ -30,8 +32,9 @@ class UserProgressController(
     }
 
     @GetMapping("/statistics")
-    fun getUserStatistics(@RequestParam userId: String): ResponseEntity<Any> {
+    fun getUserStatistics(authentication: Authentication): ResponseEntity<Any> {
         return try {
+            val userId = authentication.principal as String
             val stats = userProgressService.getUserStatistics(UUID.fromString(userId))
             ResponseEntity.ok(stats)
         } catch (e: IllegalArgumentException) {
@@ -46,8 +49,9 @@ class UserProgressController(
     }
 
     @PostMapping("/update-streak")
-    fun updateStreak(@RequestParam userId: String): ResponseEntity<Any> {
+    fun updateStreak(authentication: Authentication): ResponseEntity<Any> {
         return try {
+            val userId = authentication.principal as String
             userProgressService.updateStreak(UUID.fromString(userId))
             ResponseEntity.ok(mapOf("message" to "Streak updated successfully"))
         } catch (e: IllegalArgumentException) {

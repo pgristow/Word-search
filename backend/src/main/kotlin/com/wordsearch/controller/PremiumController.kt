@@ -29,7 +29,7 @@ class PremiumController(
         @RequestBody request: PremiumPurchaseRequest,
         authentication: Authentication
     ): ResponseEntity<PremiumPurchaseResponse> {
-        val userId = UUID.fromString(authentication.name)
+        val userId = UUID.fromString(authentication.principal as String)
         val response = premiumService.processPurchase(userId, request)
         return if (response.success) {
             ResponseEntity.ok(response)
@@ -44,7 +44,7 @@ class PremiumController(
      */
     @GetMapping("/status")
     fun getPremiumStatus(authentication: Authentication): ResponseEntity<PremiumStatusResponse> {
-        val userId = UUID.fromString(authentication.name)
+        val userId = UUID.fromString(authentication.principal as String)
         val status = premiumService.getPremiumStatus(userId)
         return ResponseEntity.ok(status)
     }
@@ -58,7 +58,7 @@ class PremiumController(
         @RequestBody request: RestorePurchaseRequest,
         authentication: Authentication
     ): ResponseEntity<PremiumRestoreResponse> {
-        val userId = UUID.fromString(authentication.name)
+        val userId = UUID.fromString(authentication.principal as String)
         val response = premiumService.restorePurchase(userId, request.purchaseToken)
         return if (response.success) {
             ResponseEntity.ok(response)
@@ -73,7 +73,7 @@ class PremiumController(
      */
     @DeleteMapping("/cancel-renewal")
     fun cancelAutoRenewal(authentication: Authentication): ResponseEntity<Map<String, Any>> {
-        val userId = UUID.fromString(authentication.name)
+        val userId = UUID.fromString(authentication.principal as String)
         val response = premiumService.cancelAutoRenewal(userId)
         return if (response["success"] == true) {
             ResponseEntity.ok(response)

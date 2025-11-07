@@ -27,7 +27,7 @@ class AdController(
      */
     @GetMapping("/should-show")
     fun shouldShowAd(authentication: Authentication): ResponseEntity<AdShouldShowResponse> {
-        val userId = UUID.fromString(authentication.name)
+        val userId = UUID.fromString(authentication.principal as String)
         val response = adService.shouldShowAd(userId)
         return ResponseEntity.ok(response)
     }
@@ -41,7 +41,7 @@ class AdController(
         @RequestBody request: RecordAdRequest,
         authentication: Authentication
     ): ResponseEntity<AdViewResponse> {
-        val userId = UUID.fromString(authentication.name)
+        val userId = UUID.fromString(authentication.principal as String)
         val response = adService.recordAdView(
             userId = userId,
             adType = request.adType,
@@ -57,7 +57,7 @@ class AdController(
      */
     @GetMapping("/session-status")
     fun getSessionStatus(authentication: Authentication): ResponseEntity<AdSessionStatusResponse> {
-        val userId = UUID.fromString(authentication.name)
+        val userId = UUID.fromString(authentication.principal as String)
         val response = adService.getSessionStatus(userId)
         return ResponseEntity.ok(response)
     }
@@ -71,7 +71,7 @@ class AdController(
         @RequestParam(defaultValue = "30") daysBack: Int,
         authentication: Authentication
     ): ResponseEntity<Map<String, Any>> {
-        val userId = UUID.fromString(authentication.name)
+        val userId = UUID.fromString(authentication.principal as String)
         val stats = adService.getAdStatistics(userId, daysBack)
         return ResponseEntity.ok(stats)
     }
@@ -82,7 +82,7 @@ class AdController(
      */
     @PostMapping("/reset-session")
     fun resetSession(authentication: Authentication): ResponseEntity<Map<String, Any>> {
-        val userId = UUID.fromString(authentication.name)
+        val userId = UUID.fromString(authentication.principal as String)
         val newSession = adService.resetSession(userId)
         return ResponseEntity.ok(
             mapOf(

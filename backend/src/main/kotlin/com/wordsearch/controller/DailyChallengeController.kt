@@ -28,7 +28,7 @@ class DailyChallengeController(
      */
     @GetMapping("/today")
     fun getTodaysChallenge(authentication: Authentication): ResponseEntity<DailyChallengeResponse> {
-        val userId = UUID.fromString(authentication.name)
+        val userId = UUID.fromString(authentication.principal as String)
         val challenge = dailyChallengeService.getTodaysChallenge(userId)
         return ResponseEntity.ok(challenge)
     }
@@ -39,7 +39,7 @@ class DailyChallengeController(
      */
     @PostMapping("/start")
     fun startDailyChallenge(authentication: Authentication): ResponseEntity<DailyChallengeStartResponse> {
-        val userId = UUID.fromString(authentication.name)
+        val userId = UUID.fromString(authentication.principal as String)
         return try {
             val response = dailyChallengeService.startDailyChallenge(userId)
             ResponseEntity.ok(response)
@@ -58,7 +58,7 @@ class DailyChallengeController(
         @RequestBody request: CompleteChallengeRequest,
         authentication: Authentication
     ): ResponseEntity<DailyChallengeCompletionResponse> {
-        val userId = UUID.fromString(authentication.name)
+        val userId = UUID.fromString(authentication.principal as String)
         return try {
             val response = dailyChallengeService.completeDailyChallenge(
                 attemptId = attemptId,
@@ -84,7 +84,7 @@ class DailyChallengeController(
         @RequestParam(defaultValue = "30") limit: Int,
         authentication: Authentication
     ): ResponseEntity<DailyChallengeHistory> {
-        val userId = UUID.fromString(authentication.name)
+        val userId = UUID.fromString(authentication.principal as String)
         val history = dailyChallengeService.getDailyChallengeHistory(userId, limit)
         return ResponseEntity.ok(history)
     }
@@ -115,7 +115,7 @@ class DailyChallengeController(
      */
     @GetMapping("/stats")
     fun getDailyChallengeStats(authentication: Authentication): ResponseEntity<Map<String, Any>> {
-        val userId = UUID.fromString(authentication.name)
+        val userId = UUID.fromString(authentication.principal as String)
         val history = dailyChallengeService.getDailyChallengeHistory(userId, 365)
 
         val stats = mapOf(

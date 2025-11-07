@@ -21,7 +21,7 @@ class AchievementController(
      */
     @GetMapping
     fun getUserAchievements(authentication: Authentication): ResponseEntity<UserAchievementSummary> {
-        val userId = UUID.fromString(authentication.name)
+        val userId = UUID.fromString(authentication.principal as String)
         val summary = achievementService.getUserAchievements(userId)
         return ResponseEntity.ok(summary)
     }
@@ -35,7 +35,7 @@ class AchievementController(
         @PathVariable category: String,
         authentication: Authentication
     ): ResponseEntity<List<AchievementResponse>> {
-        val userId = UUID.fromString(authentication.name)
+        val userId = UUID.fromString(authentication.principal as String)
         val achievements = achievementService.getAchievementsByCategory(userId, category.uppercase())
         return ResponseEntity.ok(achievements)
     }
@@ -46,7 +46,7 @@ class AchievementController(
      */
     @PostMapping("/check")
     fun checkAchievements(authentication: Authentication): ResponseEntity<List<AchievementUnlockedResponse>> {
-        val userId = UUID.fromString(authentication.name)
+        val userId = UUID.fromString(authentication.principal as String)
         val newlyUnlocked = achievementService.checkAndUnlockAchievements(userId)
         return ResponseEntity.ok(newlyUnlocked)
     }
@@ -60,7 +60,7 @@ class AchievementController(
         @RequestParam(defaultValue = "10") limit: Int,
         authentication: Authentication
     ): ResponseEntity<List<AchievementResponse>> {
-        val userId = UUID.fromString(authentication.name)
+        val userId = UUID.fromString(authentication.principal as String)
         val recentAchievements = achievementService.getRecentlyUnlocked(userId, limit)
         return ResponseEntity.ok(recentAchievements)
     }
@@ -71,7 +71,7 @@ class AchievementController(
      */
     @GetMapping("/summary")
     fun getAchievementSummary(authentication: Authentication): ResponseEntity<Map<String, Any>> {
-        val userId = UUID.fromString(authentication.name)
+        val userId = UUID.fromString(authentication.principal as String)
         val summary = achievementService.getUserAchievements(userId)
 
         val response = mapOf(
