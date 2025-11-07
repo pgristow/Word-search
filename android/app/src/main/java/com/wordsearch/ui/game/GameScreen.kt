@@ -107,6 +107,7 @@ fun GameScreen(
                         session = state.session,
                         message = state.message,
                         isSuccess = state.isSuccess,
+                        gameMode = gameMode,
                         viewModel = viewModel
                     )
                 }
@@ -127,6 +128,15 @@ fun GameScreen(
                         onNavigateBack = onGameComplete
                     )
                 }
+
+                is GameUiState.CasualSaved -> {
+                    CasualSavedScreen(
+                        finalScore = state.finalScore,
+                        wordsFound = state.wordsFound,
+                        sessionDuration = state.sessionDuration,
+                        onNavigateBack = onGameComplete
+                    )
+                }
             }
         }
     }
@@ -137,10 +147,12 @@ fun GamePlayingContent(
     session: GameSession,
     message: String?,
     isSuccess: Boolean?,
+    gameMode: String,
     viewModel: GameViewModel
 ) {
     val selectedCells by viewModel.selectedCells.collectAsState()
     val foundWords by viewModel.foundWords.collectAsState()
+    val isCasualMode = gameMode == "CASUAL"
 
     Column(
         modifier = Modifier
@@ -148,7 +160,7 @@ fun GamePlayingContent(
             .padding(16.dp)
     ) {
         // Score and combo
-        GameStatsRow(session)
+        GameStatsRow(session, isCasualMode)
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -217,22 +229,39 @@ fun GamePlayingContent(
             }
         }
 
+        // Save button for casual mode
+        if (isCasualMode) {
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = { viewModel.saveCasualProgress() },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                )
+            ) {
+                Icon(Icons.Default.Save, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Save & Exit")
+            }
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
 
         // Words list
         WordsList(
             words = session.words.map { it.word },
             foundWords = foundWords,
+            isCasualMode = isCasualMode,
             modifier = Modifier.weight(0.5f)
         )
     }
 }
 
 @Composable
-fun GameStatsRow(session: GameSession) {
+fun GameStatsRow(session: GameSession, isCasualMode: Boolean) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceAround
+        horizontalArrangement = if (isCasualMode) Arrangement.SpaceEvenly else Arrangement.SpaceAround
     ) {
         StatChip(
             icon = Icons.Default.Star,
@@ -244,11 +273,14 @@ fun GameStatsRow(session: GameSession) {
             label = "Words",
             value = "${session.wordsFound}/${session.targetWordCount}"
         )
-        StatChip(
-            icon = Icons.Default.Favorite,
-            label = "Combo",
-            value = "${session.currentCombo}x"
-        )
+        // Only show combo in classic mode
+        if (!isCasualMode) {
+            StatChip(
+                icon = Icons.Default.Favorite,
+                label = "Combo",
+                value = "${session.currentCombo}x"
+            )
+        }
     }
 }
 
@@ -389,19 +421,29 @@ fun GridCell(char: Char, isSelected: Boolean) {
 fun WordsList(
     words: List<String>,
     foundWords: Set<String>,
+    isCasualMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = if (isCasualMode) {
+                MaterialTheme.colorScheme.tertiaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            }
         )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Words to Find",
+                text = if (isCasualMode) "Find These Words" else "Words to Find",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = if (isCasualMode) {
+                    MaterialTheme.colorScheme.onTertiaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
             )
             Spacer(modifier = Modifier.height(8.dp))
             LazyColumn {
@@ -413,20 +455,31 @@ fun WordsList(
                             .padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (isFound) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = WordFound,
-                                modifier = Modifier.size(16.dp)
+                        if (isCasualMode) {
+                            // Checkbox for casual mode
+                            Checkbox(
+                                checked = isFound,
+                                onCheckedChange = null,
+                                enabled = false,
+                                modifier = Modifier.size(20.dp)
                             )
                         } else {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
-                            )
+                            // Icons for classic mode
+                            if (isFound) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = WordFound,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
@@ -434,9 +487,17 @@ fun WordsList(
                             style = MaterialTheme.typography.bodyMedium,
                             textDecoration = if (isFound) TextDecoration.LineThrough else null,
                             color = if (isFound) {
-                                WordFound
+                                if (isCasualMode) {
+                                    MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.6f)
+                                } else {
+                                    WordFound
+                                }
                             } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
+                                if (isCasualMode) {
+                                    MaterialTheme.colorScheme.onTertiaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
                             }
                         )
                     }
@@ -557,6 +618,95 @@ fun GameOverStat(label: String, value: String) {
             text = label,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+    }
+}
+
+@Composable
+fun CasualSavedScreen(
+    finalScore: Int,
+    wordsFound: Int,
+    sessionDuration: Int,
+    onNavigateBack: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Save,
+            contentDescription = null,
+            modifier = Modifier.size(80.dp),
+            tint = MaterialTheme.colorScheme.tertiary
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "Progress Saved!",
+            style = MaterialTheme.typography.displaySmall,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Take a break and come back anytime to continue",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                CasualSavedStat("Current Score", finalScore.toString())
+                Spacer(modifier = Modifier.height(16.dp))
+                CasualSavedStat("Words Found", wordsFound.toString())
+                Spacer(modifier = Modifier.height(16.dp))
+                CasualSavedStat("Time Played", "${sessionDuration}m")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Button(
+            onClick = onNavigateBack,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.tertiary
+            )
+        ) {
+            Text("Back to Categories")
+        }
+    }
+}
+
+@Composable
+fun CasualSavedStat(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.displayMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onTertiaryContainer
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onTertiaryContainer
         )
     }
 }

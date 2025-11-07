@@ -239,6 +239,31 @@ class GameViewModel @Inject constructor(
             }
         }
     }
+
+    fun saveCasualProgress() {
+        val session = currentSession ?: return
+
+        viewModelScope.launch {
+            try {
+                val result = gameRepository.saveCasualProgress(session.sessionId)
+                if (result.isSuccess) {
+                    val summary = result.getOrNull()!!
+                    _uiState.value = GameUiState.CasualSaved(
+                        finalScore = summary.totalScore,
+                        wordsFound = summary.wordsFound,
+                        sessionDuration = summary.duration.toInt()
+                    )
+                } else {
+                    _uiState.value = GameUiState.Error(
+                        result.exceptionOrNull()?.message ?: "Failed to save progress"
+                    )
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error saving casual progress")
+                _uiState.value = GameUiState.Error(e.message ?: "An error occurred")
+            }
+        }
+    }
 }
 
 sealed class GameUiState {
@@ -254,6 +279,11 @@ sealed class GameUiState {
         val session: GameSession
     ) : GameUiState()
     data class GameOver(
+        val finalScore: Int,
+        val wordsFound: Int,
+        val sessionDuration: Int
+    ) : GameUiState()
+    data class CasualSaved(
         val finalScore: Int,
         val wordsFound: Int,
         val sessionDuration: Int

@@ -29,6 +29,12 @@ interface GameApi {
     @GET("api/game/session/active")
     suspend fun getActiveSession(): Response<GameSession>
 
+    @POST("api/game/session/{id}/save")
+    suspend fun saveCasualProgress(@Path("id") sessionId: String): Response<SessionSummary>
+
+    @POST("api/game/session/{id}/resume")
+    suspend fun resumeCasualGame(@Path("id") sessionId: String): Response<GameSession>
+
     // User Progress
     @GET("api/user/progress")
     suspend fun getUserProgress(): Response<UserProgress>
@@ -108,6 +114,15 @@ data class StartSessionRequest(
     val gameMode: String = "CLASSIC"
 )
 data class SessionEndResponse(val finalScore: Int, val wordsFound: Int, val sessionDuration: Int)
+data class SessionSummary(
+    val sessionId: String,
+    val startingLevel: Int,
+    val endingLevel: Int,
+    val totalScore: Int,
+    val wordsFound: Int,
+    val highestCombo: Int,
+    val duration: Long
+)
 data class UserStatistics(val totalGamesPlayed: Int, val averageScore: Int, val favoriteCategory: String)
 data class StreakResponse(val currentStreak: Int, val message: String)
 data class BossLevelCheckResponse(val isBossLevel: Boolean, val bossType: String?)

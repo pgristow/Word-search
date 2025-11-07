@@ -77,6 +77,34 @@ class GameRepository @Inject constructor(
         }
     }
 
+    suspend fun saveCasualProgress(sessionId: String): Result<SessionSummary> = withContext(Dispatchers.IO) {
+        try {
+            val response = gameApi.saveCasualProgress(sessionId)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Failed to save progress"))
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error saving progress")
+            Result.failure(e)
+        }
+    }
+
+    suspend fun resumeCasualGame(sessionId: String): Result<GameSession> = withContext(Dispatchers.IO) {
+        try {
+            val response = gameApi.resumeCasualGame(sessionId)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Failed to resume game"))
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error resuming game")
+            Result.failure(e)
+        }
+    }
+
     // User Progress
     suspend fun getUserProgress(): Result<UserProgress> = withContext(Dispatchers.IO) {
         try {
