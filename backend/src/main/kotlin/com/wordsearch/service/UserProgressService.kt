@@ -17,17 +17,18 @@ class UserProgressService(
         val progress = userProgressRepository.findByUserId(userId)
             ?: throw IllegalArgumentException("User progress not found")
 
+        // Calculate total boss levels completed from all sessions
+        val allSessions = gameSessionRepository.findByUserId(userId)
+        val totalBossLevelsCompleted = allSessions.sumOf { it.bossLevelsCompleted }
+
         return UserProgressResponse(
-            userId = userId.toString(),
             currentLevel = progress.currentLevel,
-            totalScore = progress.totalScore,
-            highestLevelReached = progress.highestLevelReached,
-            highestCombo = progress.highestCombo,
+            totalScore = progress.totalScore.toInt(),
             totalWordsFound = progress.totalWordsFound,
-            totalReversedWordsFound = progress.totalReversedWordsFound,
-            currentStreakDays = progress.currentStreakDays,
-            longestStreakDays = progress.longestStreakDays,
-            lastPlayedAt = progress.lastPlayedAt?.toString(),
+            highestCombo = progress.highestCombo,
+            currentStreak = progress.currentStreakDays,
+            longestStreak = progress.longestStreakDays,
+            bossLevelsCompleted = totalBossLevelsCompleted,
             casualPuzzlesCompleted = progress.casualPuzzlesCompleted
         )
     }
@@ -130,17 +131,14 @@ class UserProgressService(
 
 // DTOs
 data class UserProgressResponse(
-    val userId: String,
     val currentLevel: Int,
-    val totalScore: Long,
-    val highestLevelReached: Int,
-    val highestCombo: Int,
+    val totalScore: Int,
     val totalWordsFound: Int,
-    val totalReversedWordsFound: Int,
-    val currentStreakDays: Int,
-    val longestStreakDays: Int,
-    val lastPlayedAt: String?,
-    val casualPuzzlesCompleted: Int = 0
+    val highestCombo: Int,
+    val currentStreak: Int,
+    val longestStreak: Int,
+    val bossLevelsCompleted: Int,
+    val casualPuzzlesCompleted: Int
 )
 
 data class UserStatistics(
