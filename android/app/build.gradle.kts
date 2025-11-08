@@ -23,7 +23,7 @@ android {
         }
 
         // Backend API configuration
-        buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8080/\"") // For emulator
+        buildConfigField("String", "BASE_URL", "\"http://172.23.59.85:8080/\"") // WSL2 IP for phone access
         buildConfigField("String", "API_VERSION", "\"v1\"")
     }
 

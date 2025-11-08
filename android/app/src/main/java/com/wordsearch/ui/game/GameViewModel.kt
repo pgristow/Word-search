@@ -144,14 +144,13 @@ class GameViewModel @Inject constructor(
                 val timeElapsed = ((System.currentTimeMillis() - gameStartTime) / 1000).toInt()
 
                 // Submit to backend
-                val request = SubmitWordRequest(
+                val result = gameRepository.submitWord(
+                    sessionId = session.sessionId,
                     word = word,
                     isReversed = isReversed,
                     isDiagonal = isDiagonal,
                     timeElapsed = timeElapsed
                 )
-
-                val result = gameRepository.submitWord(session.sessionId, request)
                 if (result.isSuccess) {
                     val response = result.getOrNull()!!
                     handleWordSubmission(response, word)

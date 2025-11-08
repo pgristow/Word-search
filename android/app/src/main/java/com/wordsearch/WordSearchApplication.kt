@@ -16,10 +16,10 @@ class WordSearchApplication : Application() {
             Timber.plant(Timber.DebugTree())
         }
 
-        // Initialize AdMob
-        MobileAds.initialize(this) {
-            Timber.d("AdMob initialized")
-        }
+        // Initialize AdMob - TODO: Disabled until proper google-services.json is configured
+        // MobileAds.initialize(this) {
+        //     Timber.d("AdMob initialized")
+        // }
 
         Timber.d("WordSearchApplication created")
     }

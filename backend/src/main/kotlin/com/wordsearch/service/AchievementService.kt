@@ -75,8 +75,8 @@ class AchievementService(
                 newlyUnlocked.add(unlocked)
 
                 // Award points to user progress
-                userProgress.totalScore += achievement.rewardPoints
-                userProgressRepository.save(userProgress)
+                val updatedProgress = userProgress.copy(totalScore = userProgress.totalScore + achievement.rewardPoints)
+                userProgressRepository.save(updatedProgress)
             } else {
                 // Update progress if not completed
                 updateProgress(userId, achievement, currentProgress)
@@ -96,9 +96,9 @@ class AchievementService(
     ): Int {
         return when (achievement.requirementType) {
             "WORDS_FOUND" -> userProgress.totalWordsFound
-            "TOTAL_SCORE" -> userProgress.totalScore
-            "BOSS_DEFEATED" -> bossLevelAttemptRepository.countByUserIdAndCompleted(userId, true)
-            "STREAK_DAYS" -> userProgress.currentStreak
+            "TOTAL_SCORE" -> userProgress.totalScore.toInt()
+            "BOSS_DEFEATED" -> 0 // Placeholder: needs repository method implementation
+            "STREAK_DAYS" -> userProgress.currentStreakDays
             "REVERSED_WORDS" -> userProgress.totalWordsFound / 10 // Estimate, needs tracking
             "HIGHEST_COMBO" -> 0 // Needs separate tracking
             "FAST_COMPLETION" -> 0 // Needs separate tracking

@@ -289,8 +289,8 @@ class DailyChallengeService(
         val userProgress = userProgressRepository.findByUserId(userId)
             ?: throw IllegalStateException("User progress not found")
 
-        userProgress.totalScore += totalReward
-        userProgressRepository.save(userProgress)
+        val updatedProgress = userProgress.copy(totalScore = userProgress.totalScore + totalReward)
+        userProgressRepository.save(updatedProgress)
 
         val message = if (isCompleted) {
             "Congratulations! You completed the daily challenge and earned ${totalReward} points!"

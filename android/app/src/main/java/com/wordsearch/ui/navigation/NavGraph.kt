@@ -152,7 +152,7 @@ fun NavGraph(
                     navController.popBackStack()
                 },
                 onNavigateToGame = { attemptId, challengeId ->
-                    navController.navigate(Screen.Game.createRoute(challengeId))
+                    navController.navigate(Screen.Game.createRoute(challengeId, "CHALLENGE"))
                 }
             )
         }

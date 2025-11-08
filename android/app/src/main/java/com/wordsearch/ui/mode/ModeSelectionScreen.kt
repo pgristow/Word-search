@@ -99,6 +99,7 @@ fun ModeSelectionScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ModeCard(
     title: String,

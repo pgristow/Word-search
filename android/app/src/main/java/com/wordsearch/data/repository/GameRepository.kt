@@ -178,6 +178,34 @@ class GameRepository @Inject constructor(
         }
     }
 
+    suspend fun startDailyChallenge(): Result<DailyChallengeStart> = withContext(Dispatchers.IO) {
+        try {
+            val response = gameApi.startDailyChallenge()
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Failed to start daily challenge"))
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error starting daily challenge")
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getChallengeHistory(limit: Int = 30): Result<ChallengeHistory> = withContext(Dispatchers.IO) {
+        try {
+            val response = gameApi.getChallengeHistory(limit)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Failed to fetch challenge history"))
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error fetching challenge history")
+            Result.failure(e)
+        }
+    }
+
     // Ads
     suspend fun shouldShowAd(): Result<AdShouldShowResponse> = withContext(Dispatchers.IO) {
         try {

@@ -263,10 +263,10 @@ class PremiumService(
         )
         premiumSubscriptionRepository.save(updated)
 
-        return mapOf(
+        return mapOf<String, Any>(
             "success" to true,
             "message" to "Auto-renewal cancelled. Premium access will expire on ${subscription.expiryDate}",
-            "expiryDate" to subscription.expiryDate
+            "expiryDate" to (subscription.expiryDate?.toString() ?: "")
         )
     }
 
