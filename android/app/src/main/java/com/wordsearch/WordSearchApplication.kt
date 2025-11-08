@@ -20,6 +20,7 @@ class WordSearchApplication : Application() {
         // MobileAds.initialize(this) {
         //     Timber.d("AdMob initialized")
         // }
+        Timber.d("AdMob disabled - using placeholder google-services.json")
 
         Timber.d("WordSearchApplication created")
     }
