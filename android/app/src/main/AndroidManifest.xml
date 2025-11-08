@@ -7,13 +7,6 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
-    <!-- AdMob App ID - DISABLED temporarily -->
-    <!--
-    <meta-data
-        android:name="com.google.android.gms.ads.APPLICATION_ID"
-        android:value="ca-app-pub-3940256099942544~3347511713"/>
-    -->
-
     <application
         android:name=".WordSearchApplication"
         android:allowBackup="true"
@@ -37,6 +30,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Disable AdMob auto-initialization until proper credentials are configured -->
+        <provider
+            android:name="com.google.android.gms.ads.MobileAdsInitProvider"
+            android:authorities="${applicationId}.mobileadsinitprovider"
+            android:enabled="false"
+            tools:node="remove" />
     </application>
 
 </manifest>
