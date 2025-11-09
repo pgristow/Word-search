@@ -228,7 +228,8 @@ fun GamePlayingContent(
             grid = session.grid,
             selectedCells = selectedCells,
             foundWordPaths = foundWordPaths,
-            onCellSelected = { row, col -> viewModel.onCellSelected(row, col) },
+            onSelectionStart = { row, col -> viewModel.startSelection(row, col) },
+            onSelectionUpdate = { row, col -> viewModel.updateSelection(row, col, session.gridSize) },
             onSelectionComplete = { viewModel.submitWord() },
             modifier = Modifier.weight(1f, fill = false)
         )
@@ -308,12 +309,12 @@ fun WordGrid(
     grid: List<List<Char>>,
     selectedCells: List<Pair<Int, Int>>,
     foundWordPaths: List<Pair<String, List<Pair<Int, Int>>>>,
-    onCellSelected: (Int, Int) -> Unit,
+    onSelectionStart: (Int, Int) -> Unit,
+    onSelectionUpdate: (Int, Int) -> Unit,
     onSelectionComplete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var gridSize by remember { mutableStateOf(Offset.Zero) }
-    var lastSelectedCell by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     val density = LocalDensity.current
 
     BoxWithConstraints(
@@ -329,13 +330,11 @@ fun WordGrid(
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { offset ->
-                        lastSelectedCell = null
                         if (gridSize != Offset.Zero) {
                             val cellSize = gridSize.x / grid[0].size
                             val row = (offset.y / cellSize).toInt().coerceIn(0, grid.size - 1)
                             val col = (offset.x / cellSize).toInt().coerceIn(0, grid[0].size - 1)
-                            lastSelectedCell = row to col
-                            onCellSelected(row, col)
+                            onSelectionStart(row, col)
                         }
                     },
                     onDrag = { change, _ ->
@@ -344,21 +343,14 @@ fun WordGrid(
                             val cellSize = gridSize.x / grid[0].size
                             val row = (change.position.y / cellSize).toInt().coerceIn(0, grid.size - 1)
                             val col = (change.position.x / cellSize).toInt().coerceIn(0, grid[0].size - 1)
-
-                            // Only call onCellSelected if we moved to a DIFFERENT cell
-                            val currentCell = row to col
-                            if (currentCell != lastSelectedCell) {
-                                lastSelectedCell = currentCell
-                                onCellSelected(row, col)
-                            }
+                            onSelectionUpdate(row, col)
                         }
                     },
                     onDragEnd = {
                         onSelectionComplete()
-                        lastSelectedCell = null
                     },
                     onDragCancel = {
-                        lastSelectedCell = null
+                        // Clear selection on cancel
                     }
                 )
             }
@@ -371,38 +363,98 @@ fun WordGrid(
             .drawBehind {
                 // Draw found word paths
                 foundWordPaths.forEachIndexed { index, (word, path) ->
-                    if (path.size >= 2) {
+                    if (path.size >= 1) {
                         val color = getWordColor(index).copy(alpha = 0.5f)
-                        path.windowed(2).forEach { (start, end) ->
-                            val startX = (start.second + 0.5f) * cellSize
-                            val startY = (start.first + 0.5f) * cellSize
-                            val endX = (end.second + 0.5f) * cellSize
-                            val endY = (end.first + 0.5f) * cellSize
+
+                        if (path.size == 1) {
+                            // Single letter word - draw a circle
+                            val centerX = (path[0].second + 0.5f) * cellSize
+                            val centerY = (path[0].first + 0.5f) * cellSize
+                            drawCircle(
+                                color = color,
+                                radius = cellSize * 0.4f,
+                                center = Offset(centerX, centerY)
+                            )
+                        } else {
+                            // Multi-letter word - draw line from first to last with extension
+                            val firstCell = path.first()
+                            val lastCell = path.last()
+
+                            val firstX = (firstCell.second + 0.5f) * cellSize
+                            val firstY = (firstCell.first + 0.5f) * cellSize
+                            val lastX = (lastCell.second + 0.5f) * cellSize
+                            val lastY = (lastCell.first + 0.5f) * cellSize
+
+                            // Calculate direction vector
+                            val dx = lastX - firstX
+                            val dy = lastY - firstY
+                            val length = kotlin.math.sqrt(dx * dx + dy * dy)
+
+                            // Normalize and extend by 0.5 cells in each direction
+                            val extension = cellSize * 0.5f
+                            val ndx = (dx / length) * extension
+                            val ndy = (dy / length) * extension
+
+                            val startX = firstX - ndx
+                            val startY = firstY - ndy
+                            val endX = lastX + ndx
+                            val endY = lastY + ndy
 
                             drawLine(
                                 color = color,
                                 start = Offset(startX, startY),
                                 end = Offset(endX, endY),
-                                strokeWidth = cellSize * 0.8f
+                                strokeWidth = cellSize * 0.8f,
+                                cap = androidx.compose.ui.graphics.StrokeCap.Round
                             )
                         }
                     }
                 }
 
                 // Draw current selection
-                if (selectedCells.size >= 2) {
+                if (selectedCells.size >= 1) {
                     val selectionColor = Color(0xFF2196F3).copy(alpha = 0.5f) // Blue
-                    selectedCells.windowed(2).forEach { (start, end) ->
-                        val startX = (start.second + 0.5f) * cellSize
-                        val startY = (start.first + 0.5f) * cellSize
-                        val endX = (end.second + 0.5f) * cellSize
-                        val endY = (end.first + 0.5f) * cellSize
+
+                    if (selectedCells.size == 1) {
+                        // Single letter - draw a circle
+                        val centerX = (selectedCells[0].second + 0.5f) * cellSize
+                        val centerY = (selectedCells[0].first + 0.5f) * cellSize
+                        drawCircle(
+                            color = selectionColor,
+                            radius = cellSize * 0.4f,
+                            center = Offset(centerX, centerY)
+                        )
+                    } else {
+                        // Multi-letter - draw line from first to last with extension
+                        val firstCell = selectedCells.first()
+                        val lastCell = selectedCells.last()
+
+                        val firstX = (firstCell.second + 0.5f) * cellSize
+                        val firstY = (firstCell.first + 0.5f) * cellSize
+                        val lastX = (lastCell.second + 0.5f) * cellSize
+                        val lastY = (lastCell.first + 0.5f) * cellSize
+
+                        // Calculate direction vector
+                        val dx = lastX - firstX
+                        val dy = lastY - firstY
+                        val length = kotlin.math.sqrt(dx * dx + dy * dy)
+
+                        // Normalize and extend by 0.5 cells in each direction
+                        val extension = cellSize * 0.5f
+                        val ndx = (dx / length) * extension
+                        val ndy = (dy / length) * extension
+
+                        val startX = firstX - ndx
+                        val startY = firstY - ndy
+                        val endX = lastX + ndx
+                        val endY = lastY + ndy
 
                         drawLine(
                             color = selectionColor,
                             start = Offset(startX, startY),
                             end = Offset(endX, endY),
-                            strokeWidth = cellSize * 0.8f
+                            strokeWidth = cellSize * 0.8f,
+                            cap = androidx.compose.ui.graphics.StrokeCap.Round
                         )
                     }
                 }

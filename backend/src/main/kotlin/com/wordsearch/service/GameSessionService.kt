@@ -37,6 +37,7 @@ class GameSessionService(
         // Create new game session
         val session = GameSession(
             userId = userId,
+            categoryId = categoryId,
             startingLevel = userProgress.currentLevel,
             sessionStart = LocalDateTime.now(),
             gameMode = gameMode
@@ -91,6 +92,27 @@ class GameSessionService(
 
         if (!session.isActive) {
             throw IllegalArgumentException("Session is not active")
+        }
+
+        // Get category for this session to retrieve the word list
+        val category = categoryRepository.findById(session.categoryId ?: throw IllegalArgumentException("Session has no category"))
+            .orElseThrow { IllegalArgumentException("Category not found") }
+
+        val validWords = wordRepository.findByCategoryId(category.id).map { it.word.uppercase() }
+
+        // Validate the submitted word exists in the word list
+        val wordUppercase = word.uppercase()
+        if (!validWords.contains(wordUppercase)) {
+            return WordSubmissionResponse(
+                correct = false,
+                score = 0,
+                totalScore = session.totalScore.toLong(),
+                currentCombo = 0,
+                leveledUp = false,
+                newLevel = null,
+                wordsFoundInSession = session.wordsFound,
+                message = "Word not in list"
+            )
         }
 
         // Mode-specific scoring
@@ -149,13 +171,14 @@ class GameSessionService(
         }
 
         return WordSubmissionResponse(
-            valid = true,
+            correct = true,
             score = score,
             totalScore = updatedProgress.totalScore + score,
             currentCombo = currentCombo,
             leveledUp = leveledUp,
             newLevel = if (leveledUp) newLevel else null,
-            wordsFoundInSession = updatedSession.wordsFound
+            wordsFoundInSession = updatedSession.wordsFound,
+            message = "Correct!"
         )
     }
 
@@ -310,13 +333,14 @@ data class WordInfo(
 )
 
 data class WordSubmissionResponse(
-    val valid: Boolean,
+    val correct: Boolean,
     val score: Int,
     val totalScore: Long,
     val currentCombo: Int,
     val leveledUp: Boolean,
     val newLevel: Int?,
-    val wordsFoundInSession: Int
+    val wordsFoundInSession: Int,
+    val message: String
 )
 
 data class SessionSummary(

@@ -14,6 +14,9 @@ data class GameSession(
     @Column(name = "user_id", columnDefinition = "UUID")
     val userId: UUID,
 
+    @Column(name = "category_id", columnDefinition = "UUID")
+    val categoryId: UUID? = null,
+
     @Column(name = "session_start")
     val sessionStart: LocalDateTime = LocalDateTime.now(),
 

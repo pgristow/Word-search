@@ -59,87 +59,74 @@ class GameViewModel @Inject constructor(
         }
     }
 
-    fun onCellSelected(row: Int, col: Int) {
-        val current = _selectedCells.value.toMutableList()
-
-        // If this is the first cell, just add it
-        if (current.isEmpty()) {
-            current.add(row to col)
-            _selectedCells.value = current
+    // Vector-based selection: select from start position to end position
+    fun selectFromStartToEnd(startRow: Int, startCol: Int, endRow: Int, endCol: Int, gridSize: Int) {
+        // If start and end are the same, select single cell
+        if (startRow == endRow && startCol == endCol) {
+            _selectedCells.value = listOf(startRow to startCol)
             return
         }
 
-        // Check if cell is already selected
-        val cellIndex = current.indexOf(row to col)
-        if (cellIndex != -1) {
-            // If it's the last cell, remove it (backtrack)
-            if (cellIndex == current.size - 1) {
-                current.removeAt(cellIndex)
-                _selectedCells.value = current
+        // Calculate angle between start and end
+        val dy = endRow - startRow
+        val dx = endCol - startCol
+        val angleRadians = kotlin.math.atan2(dy.toDouble(), dx.toDouble())
+        val angleDegrees = Math.toDegrees(angleRadians)
+
+        // Round to nearest 45 degrees (0, 45, 90, 135, 180, -135, -90, -45)
+        val roundedAngle = (kotlin.math.round(angleDegrees / 45.0) * 45.0).toInt()
+
+        // Convert angle to direction vector
+        val (dirRow, dirCol) = when (roundedAngle) {
+            0, -180, 180 -> 0 to 1      // Right
+            45 -> -1 to 1               // Up-right
+            90 -> -1 to 0               // Up
+            135, -135 -> -1 to -1       // Up-left
+            -45 -> 1 to 1               // Down-right
+            -90 -> 1 to 0               // Down
+            -180 -> 0 to -1             // Left
+            else -> 0 to 1              // Default to right
+        }
+
+        // Build path from start to end following the direction
+        val path = mutableListOf<Pair<Int, Int>>()
+        var currentRow = startRow
+        var currentCol = startCol
+
+        // Add cells until we go out of bounds or reach a reasonable limit
+        while (currentRow in 0 until gridSize && currentCol in 0 until gridSize && path.size < gridSize * 2) {
+            path.add(currentRow to currentCol)
+
+            // Check if we've gone past the end position
+            if (dirRow != 0) {
+                if ((dirRow > 0 && currentRow > endRow) || (dirRow < 0 && currentRow < endRow)) {
+                    break
+                }
             }
-            // If it's not the last cell, ignore (can't skip cells)
-            return
+            if (dirCol != 0) {
+                if ((dirCol > 0 && currentCol > endCol) || (dirCol < 0 && currentCol < endCol)) {
+                    break
+                }
+            }
+
+            // Move to next cell
+            currentRow += dirRow
+            currentCol += dirCol
         }
 
-        // Check if this cell is valid to add (must be adjacent and in line)
-        val lastCell = current.last()
-        if (isValidNextCell(lastCell, row to col, current)) {
-            current.add(row to col)
-            _selectedCells.value = current
-        }
+        _selectedCells.value = path
     }
 
-    private fun isValidNextCell(
-        lastCell: Pair<Int, Int>,
-        newCell: Pair<Int, Int>,
-        currentPath: List<Pair<Int, Int>>
-    ): Boolean {
-        val (lastRow, lastCol) = lastCell
-        val (newRow, newCol) = newCell
+    fun startSelection(row: Int, col: Int) {
+        _selectedCells.value = listOf(row to col)
+    }
 
-        val rowDiff = newRow - lastRow
-        val colDiff = newCol - lastCol
+    fun updateSelection(endRow: Int, endCol: Int, gridSize: Int) {
+        val current = _selectedCells.value
+        if (current.isEmpty()) return
 
-        // Check if adjacent (including diagonal)
-        if (abs(rowDiff) > 1 || abs(colDiff) > 1) return false
-        if (rowDiff == 0 && colDiff == 0) return false
-
-        // If this is the second cell, any adjacent cell is valid
-        if (currentPath.size == 1) return true
-
-        // For subsequent cells, check if direction is consistent
-        // Allow the direction to be established by first 2 cells
-        val firstCell = currentPath[0]
-        val secondCell = currentPath[1]
-
-        val directionRow = secondCell.first - firstCell.first
-        val directionCol = secondCell.second - firstCell.second
-
-        // Normalize direction (-1, 0, or 1)
-        val normalizedDirRow = when {
-            directionRow > 0 -> 1
-            directionRow < 0 -> -1
-            else -> 0
-        }
-        val normalizedDirCol = when {
-            directionCol > 0 -> 1
-            directionCol < 0 -> -1
-            else -> 0
-        }
-
-        // Check if new cell continues in the same direction
-        val newDirRow = when {
-            rowDiff > 0 -> 1
-            rowDiff < 0 -> -1
-            else -> 0
-        }
-        val newDirCol = when {
-            colDiff > 0 -> 1
-            colDiff < 0 -> -1
-            else -> 0
-        }
-
-        return newDirRow == normalizedDirRow && newDirCol == normalizedDirCol
+        val (startRow, startCol) = current.first()
+        selectFromStartToEnd(startRow, startCol, endRow, endCol, gridSize)
     }
 
     fun clearSelection() {
