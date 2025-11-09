@@ -29,6 +29,10 @@ class GameViewModel @Inject constructor(
     private val _foundWords = MutableStateFlow<Set<String>>(emptySet())
     val foundWords: StateFlow<Set<String>> = _foundWords.asStateFlow()
 
+    // Track found word paths for drawing lines
+    private val _foundWordPaths = MutableStateFlow<List<Pair<String, List<Pair<Int, Int>>>>>(emptyList())
+    val foundWordPaths: StateFlow<List<Pair<String, List<Pair<Int, Int>>>>> = _foundWordPaths.asStateFlow()
+
     private var gameStartTime: Long = 0
     private var currentSession: GameSession? = null
 
@@ -179,7 +183,7 @@ class GameViewModel @Inject constructor(
                 )
                 if (result.isSuccess) {
                     val response = result.getOrNull()!!
-                    handleWordSubmission(response, word)
+                    handleWordSubmission(response, word, selected.toList())
                 } else {
                     _uiState.value = GameUiState.Error(
                         result.exceptionOrNull()?.message ?: "Failed to submit word"
@@ -195,13 +199,16 @@ class GameViewModel @Inject constructor(
         }
     }
 
-    private fun handleWordSubmission(response: WordSubmissionResponse, word: String) {
+    private fun handleWordSubmission(response: WordSubmissionResponse, word: String, path: List<Pair<Int, Int>>) {
         val currentState = _uiState.value
         if (currentState !is GameUiState.Playing) return
 
         if (response.correct) {
             // Add to found words
             _foundWords.value = _foundWords.value + word.lowercase()
+
+            // Save the path for this word (for drawing lines)
+            _foundWordPaths.value = _foundWordPaths.value + (word.lowercase() to path)
 
             // Update session with new score and combo
             val updatedSession = currentState.session.copy(

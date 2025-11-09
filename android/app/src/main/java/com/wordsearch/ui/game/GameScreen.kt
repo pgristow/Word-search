@@ -1,17 +1,20 @@
 package com.wordsearch.ui.game
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.FlowRow
@@ -23,6 +26,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -34,6 +40,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.wordsearch.data.model.GameSession
 import com.wordsearch.ui.theme.WordFound
 import com.wordsearch.ui.theme.WordSelected
+import androidx.compose.ui.draw.drawBehind
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,6 +52,16 @@ fun GameScreen(
     viewModel: GameViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val isCasualMode = gameMode == "CASUAL"
+
+    // Auto-save on back button for casual mode
+    BackHandler {
+        if (isCasualMode && uiState is GameUiState.Playing) {
+            viewModel.saveCasualProgress()
+        } else {
+            onNavigateBack()
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.startGame(categoryId, gameMode)
@@ -55,13 +72,21 @@ fun GameScreen(
             TopAppBar(
                 title = { Text("Word Search") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = {
+                        if (isCasualMode && uiState is GameUiState.Playing) {
+                            viewModel.saveCasualProgress()
+                        } else {
+                            onNavigateBack()
+                        }
+                    }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.endGame() }) {
-                        Icon(Icons.Default.Close, contentDescription = "End game")
+                    if (!isCasualMode) {
+                        IconButton(onClick = { viewModel.endGame() }) {
+                            Icon(Icons.Default.Close, contentDescription = "End game")
+                        }
                     }
                 }
             )
@@ -156,6 +181,7 @@ fun GamePlayingContent(
 ) {
     val selectedCells by viewModel.selectedCells.collectAsState()
     val foundWords by viewModel.foundWords.collectAsState()
+    val foundWordPaths by viewModel.foundWordPaths.collectAsState()
     val isCasualMode = gameMode == "CASUAL"
 
     Column(
@@ -201,6 +227,7 @@ fun GamePlayingContent(
         WordGrid(
             grid = session.grid,
             selectedCells = selectedCells,
+            foundWordPaths = foundWordPaths,
             onCellSelected = { row, col -> viewModel.onCellSelected(row, col) },
             onSelectionComplete = { viewModel.submitWord() },
             modifier = Modifier.weight(1f, fill = false)
@@ -208,55 +235,11 @@ fun GamePlayingContent(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Action buttons
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OutlinedButton(
-                onClick = { viewModel.clearSelection() },
-                modifier = Modifier.weight(1f),
-                enabled = selectedCells.isNotEmpty()
-            ) {
-                Icon(Icons.Default.Clear, contentDescription = null)
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Clear")
-            }
-            Button(
-                onClick = { viewModel.submitWord() },
-                modifier = Modifier.weight(1f),
-                enabled = selectedCells.size >= 3
-            ) {
-                Icon(Icons.Default.Check, contentDescription = null)
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Submit")
-            }
-        }
-
-        // Save button for casual mode
-        if (isCasualMode) {
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = { viewModel.saveCasualProgress() },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                )
-            ) {
-                Icon(Icons.Default.Save, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Save & Exit")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Words list
-        WordsList(
+        // Horizontal scrollable word list
+        HorizontalWordsList(
             words = session.words.map { it.word },
             foundWords = foundWords,
-            isCasualMode = isCasualMode,
-            modifier = Modifier.weight(0.5f)
+            isCasualMode = isCasualMode
         )
     }
 }
@@ -324,6 +307,7 @@ fun StatChip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: Strin
 fun WordGrid(
     grid: List<List<Char>>,
     selectedCells: List<Pair<Int, Int>>,
+    foundWordPaths: List<Pair<String, List<Pair<Int, Int>>>>,
     onCellSelected: (Int, Int) -> Unit,
     onSelectionComplete: () -> Unit,
     modifier: Modifier = Modifier
@@ -381,19 +365,62 @@ fun WordGrid(
     ) {
         val cellSize = with(density) { (maxWidth / grid[0].size.toFloat()).toPx() }
 
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+        // Draw the grid with lines behind letters
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .drawBehind {
+                // Draw found word paths
+                foundWordPaths.forEachIndexed { index, (word, path) ->
+                    if (path.size >= 2) {
+                        val color = getWordColor(index).copy(alpha = 0.5f)
+                        path.windowed(2).forEach { (start, end) ->
+                            val startX = (start.second + 0.5f) * cellSize
+                            val startY = (start.first + 0.5f) * cellSize
+                            val endX = (end.second + 0.5f) * cellSize
+                            val endY = (end.first + 0.5f) * cellSize
+
+                            drawLine(
+                                color = color,
+                                start = Offset(startX, startY),
+                                end = Offset(endX, endY),
+                                strokeWidth = cellSize * 0.8f
+                            )
+                        }
+                    }
+                }
+
+                // Draw current selection
+                if (selectedCells.size >= 2) {
+                    val selectionColor = Color(0xFF2196F3).copy(alpha = 0.5f) // Blue
+                    selectedCells.windowed(2).forEach { (start, end) ->
+                        val startX = (start.second + 0.5f) * cellSize
+                        val startY = (start.first + 0.5f) * cellSize
+                        val endX = (end.second + 0.5f) * cellSize
+                        val endY = (end.first + 0.5f) * cellSize
+
+                        drawLine(
+                            color = selectionColor,
+                            start = Offset(startX, startY),
+                            end = Offset(endX, endY),
+                            strokeWidth = cellSize * 0.8f
+                        )
+                    }
+                }
+            }
         ) {
-            grid.forEachIndexed { rowIndex, row ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    row.forEachIndexed { colIndex, char ->
-                        val isSelected = selectedCells.contains(rowIndex to colIndex)
-                        GridCell(char, isSelected)
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                grid.forEachIndexed { rowIndex, row ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        row.forEachIndexed { colIndex, char ->
+                            GridCell(char)
+                        }
                     }
                 }
             }
@@ -401,49 +428,51 @@ fun WordGrid(
     }
 }
 
+// Generate different colors for each found word
 @Composable
-fun GridCell(char: Char, isSelected: Boolean) {
+fun getWordColor(index: Int): Color {
+    val colors = listOf(
+        Color(0xFF4CAF50), // Green
+        Color(0xFFFF9800), // Orange
+        Color(0xFF9C27B0), // Purple
+        Color(0xFFF44336), // Red
+        Color(0xFF00BCD4), // Cyan
+        Color(0xFFFFEB3B), // Yellow
+        Color(0xFF3F51B5), // Indigo
+        Color(0xFFE91E63), // Pink
+    )
+    return colors[index % colors.size]
+}
+
+@Composable
+fun GridCell(char: Char) {
     Box(
         modifier = Modifier
-            .size(48.dp) // Increased from 40dp for easier selection
-            .padding(3.dp) // Slightly more padding
-            .clip(CircleShape)
-            .background(
-                if (isSelected) WordSelected else MaterialTheme.colorScheme.surfaceVariant
-            )
-            .border(
-                width = if (isSelected) 3.dp else 1.5.dp,
-                color = if (isSelected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.outline
-                },
-                shape = CircleShape
-            ),
+            .size(36.dp) // Smaller cells
+            .padding(2.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = char.uppercase(),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            color = if (isSelected) {
-                MaterialTheme.colorScheme.onPrimary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            }
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
 
 @Composable
-fun WordsList(
+fun HorizontalWordsList(
     words: List<String>,
     foundWords: Set<String>,
-    isCasualMode: Boolean = false,
-    modifier: Modifier = Modifier
+    isCasualMode: Boolean
 ) {
+    // Separate and sort words: unfound first, then found at the end
+    val (unfoundWords, foundWordsList) = words.partition { !foundWords.contains(it.lowercase()) }
+    val sortedWords = unfoundWords + foundWordsList
+
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = if (isCasualMode) {
                 MaterialTheme.colorScheme.tertiaryContainer
@@ -452,10 +481,10 @@ fun WordsList(
             }
         )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
             Text(
                 text = if (isCasualMode) "Find These Words" else "Words to Find",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = if (isCasualMode) {
                     MaterialTheme.colorScheme.onTertiaryContainer
@@ -465,13 +494,14 @@ fun WordsList(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Wrap words in a flow layout (grid that wraps)
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            // Horizontal scrollable row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                words.forEach { word ->
+                sortedWords.forEach { word ->
                     val isFound = foundWords.contains(word.lowercase())
                     WordChip(
                         word = word,
@@ -491,13 +521,9 @@ fun WordChip(
     isCasualMode: Boolean
 ) {
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(8.dp),
         color = if (isFound) {
-            if (isCasualMode) {
-                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
-            } else {
-                WordFound.copy(alpha = 0.2f)
-            }
+            Color(0xFF4CAF50).copy(alpha = 0.2f) // Green background for found words
         } else {
             if (isCasualMode) {
                 MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f)
@@ -508,18 +534,14 @@ fun WordChip(
         border = BorderStroke(
             width = 1.dp,
             color = if (isFound) {
-                if (isCasualMode) {
-                    MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.3f)
-                } else {
-                    WordFound
-                }
+                Color(0xFF4CAF50) // Green border
             } else {
                 MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
             }
         )
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
@@ -527,12 +549,8 @@ fun WordChip(
                 Icon(
                     imageVector = Icons.Default.Check,
                     contentDescription = null,
-                    tint = if (isCasualMode) {
-                        MaterialTheme.colorScheme.onTertiaryContainer
-                    } else {
-                        WordFound
-                    },
-                    modifier = Modifier.size(14.dp)
+                    tint = Color(0xFF4CAF50), // Green
+                    modifier = Modifier.size(12.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
             }
@@ -541,11 +559,7 @@ fun WordChip(
                 style = MaterialTheme.typography.bodySmall,
                 textDecoration = if (isFound) TextDecoration.LineThrough else null,
                 color = if (isFound) {
-                    if (isCasualMode) {
-                        MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
-                    } else {
-                        WordFound
-                    }
+                    Color(0xFF4CAF50) // Green text
                 } else {
                     if (isCasualMode) {
                         MaterialTheme.colorScheme.onTertiaryContainer
