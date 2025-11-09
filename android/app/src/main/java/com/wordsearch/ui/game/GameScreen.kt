@@ -9,8 +9,12 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -446,63 +450,97 @@ fun WordsList(
                 }
             )
             Spacer(modifier = Modifier.height(8.dp))
-            LazyColumn {
-                items(words) { word ->
+
+            // Wrap words in a flow layout (grid that wraps)
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                words.forEach { word ->
                     val isFound = foundWords.contains(word.lowercase())
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (isCasualMode) {
-                            // Checkbox for casual mode
-                            Checkbox(
-                                checked = isFound,
-                                onCheckedChange = null,
-                                enabled = false,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        } else {
-                            // Icons for classic mode
-                            if (isFound) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = null,
-                                    tint = WordFound,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = word.uppercase(),
-                            style = MaterialTheme.typography.bodyMedium,
-                            textDecoration = if (isFound) TextDecoration.LineThrough else null,
-                            color = if (isFound) {
-                                if (isCasualMode) {
-                                    MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.6f)
-                                } else {
-                                    WordFound
-                                }
-                            } else {
-                                if (isCasualMode) {
-                                    MaterialTheme.colorScheme.onTertiaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                }
-                            }
-                        )
-                    }
+                    WordChip(
+                        word = word,
+                        isFound = isFound,
+                        isCasualMode = isCasualMode
+                    )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun WordChip(
+    word: String,
+    isFound: Boolean,
+    isCasualMode: Boolean
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = if (isFound) {
+            if (isCasualMode) {
+                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+            } else {
+                WordFound.copy(alpha = 0.2f)
+            }
+        } else {
+            if (isCasualMode) {
+                MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f)
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        },
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (isFound) {
+                if (isCasualMode) {
+                    MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.3f)
+                } else {
+                    WordFound
+                }
+            } else {
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+            }
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            if (isFound) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = if (isCasualMode) {
+                        MaterialTheme.colorScheme.onTertiaryContainer
+                    } else {
+                        WordFound
+                    },
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+            }
+            Text(
+                text = word.uppercase(),
+                style = MaterialTheme.typography.bodySmall,
+                textDecoration = if (isFound) TextDecoration.LineThrough else null,
+                color = if (isFound) {
+                    if (isCasualMode) {
+                        MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                    } else {
+                        WordFound
+                    }
+                } else {
+                    if (isCasualMode) {
+                        MaterialTheme.colorScheme.onTertiaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                },
+                fontWeight = if (!isFound) FontWeight.Medium else FontWeight.Normal
+            )
         }
     }
 }
