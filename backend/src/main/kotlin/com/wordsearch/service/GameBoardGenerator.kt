@@ -66,63 +66,63 @@ class GameBoardGenerator(
     fun getDifficultyConfig(level: Int): DifficultyConfig {
         return when {
             level in 1..5 -> DifficultyConfig(
-                gridSize = 10,
+                gridSize = 7,
                 allowedDirections = listOf(Direction.HORIZONTAL, Direction.VERTICAL),
                 reverseWordProbability = 0f,
                 minWordLength = 3,
-                targetWordCount = 8,
+                targetWordCount = 5,
                 distractorLetters = "ETAOINSHRDLU"
             )
             level in 6..10 -> DifficultyConfig(
-                gridSize = 12,
+                gridSize = 8,
                 allowedDirections = listOf(
                     Direction.HORIZONTAL,
                     Direction.VERTICAL,
                     Direction.DIAGONAL_DOWN_RIGHT
                 ),
                 reverseWordProbability = 0f,
-                minWordLength = 4,
-                targetWordCount = 10,
+                minWordLength = 3,
+                targetWordCount = 6,
                 distractorLetters = "ETAOINSHRDLUCMFWYPVBGKJQXZ"
             )
             level in 11..15 -> DifficultyConfig(
-                gridSize = 12,
+                gridSize = 8,
                 allowedDirections = Direction.values().toList(),
                 reverseWordProbability = 0.3f,
                 minWordLength = 4,
-                targetWordCount = 10,
+                targetWordCount = 7,
                 distractorLetters = "ETAOINSHRDLUCMFWYPVBGKJQXZ"
             )
             level in 16..20 -> DifficultyConfig(
-                gridSize = 15,
+                gridSize = 8,
                 allowedDirections = Direction.values().toList(),
                 reverseWordProbability = 0.5f,
-                minWordLength = 5,
-                targetWordCount = 12,
+                minWordLength = 4,
+                targetWordCount = 8,
                 distractorLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             )
             level in 21..30 -> DifficultyConfig(
-                gridSize = 15,
+                gridSize = 8,
                 allowedDirections = Direction.values().toList(),
                 reverseWordProbability = 0.6f,
-                minWordLength = 5,
-                targetWordCount = 12,
+                minWordLength = 4,
+                targetWordCount = 8,
                 distractorLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             )
             level in 31..40 -> DifficultyConfig(
-                gridSize = 18,
+                gridSize = 8,
                 allowedDirections = Direction.values().toList(),
                 reverseWordProbability = 0.7f,
-                minWordLength = 6,
-                targetWordCount = 15,
+                minWordLength = 5,
+                targetWordCount = 8,
                 distractorLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             )
             else -> DifficultyConfig(
-                gridSize = 20,
+                gridSize = 8,
                 allowedDirections = Direction.values().toList(),
                 reverseWordProbability = 0.8f,
-                minWordLength = 6,
-                targetWordCount = 15,
+                minWordLength = 5,
+                targetWordCount = 8,
                 distractorLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             )
         }

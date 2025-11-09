@@ -221,7 +221,34 @@ fun GamePlayingContent(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Show selected word (for debugging)
+        if (selectedCells.isNotEmpty()) {
+            val selectedWord = buildString {
+                selectedCells.forEach { (row, col) ->
+                    if (row in session.grid.indices && col in session.grid[row].indices) {
+                        append(session.grid[row][col])
+                    }
+                }
+            }
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                )
+            ) {
+                Text(
+                    text = "Selected: $selectedWord (${selectedCells.size} letters)",
+                    modifier = Modifier.padding(8.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Word grid
         WordGrid(
@@ -360,6 +387,7 @@ fun WordGrid(
         // Draw the grid with lines behind letters
         Box(modifier = Modifier
             .fillMaxSize()
+            .background(Color(0xFFFFF8E1)) // Cream background
             .drawBehind {
                 // Draw found word paths
                 foundWordPaths.forEachIndexed { index, (word, path) ->
@@ -500,14 +528,14 @@ fun getWordColor(index: Int): Color {
 fun GridCell(char: Char) {
     Box(
         modifier = Modifier
-            .size(36.dp) // Smaller cells
+            .size(48.dp) // Larger cells
             .padding(2.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = char.uppercase(),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Medium,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )
     }

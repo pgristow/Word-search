@@ -123,6 +123,16 @@ class GameViewModel @Inject constructor(
 
     fun startSelection(row: Int, col: Int) {
         _selectedCells.value = listOf(row to col)
+
+        // Clear any previous message when starting a new selection
+        val currentState = _uiState.value
+        if (currentState is GameUiState.Playing && currentState.message != null) {
+            _uiState.value = GameUiState.Playing(
+                session = currentState.session,
+                message = null,
+                isSuccess = null
+            )
+        }
     }
 
     fun updateSelection(endRow: Int, endCol: Int, gridSize: Int) {
