@@ -47,7 +47,9 @@ data class GameSession(
     @SerializedName("currentCombo")
     val currentCombo: Int,
     @SerializedName("gameMode")
-    val gameMode: String = "CLASSIC"
+    val gameMode: String = "CLASSIC",
+    @SerializedName("foundWords")
+    val foundWords: List<String> = emptyList()
 )
 
 data class WordInfo(

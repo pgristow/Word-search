@@ -2,6 +2,9 @@ package com.wordsearch.service
 
 import com.wordsearch.model.*
 import com.wordsearch.repository.*
+import com.wordsearch.dto.GameSessionResponse
+import com.wordsearch.dto.WordInfo
+import com.wordsearch.dto.WordSubmissionResponse
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -13,7 +16,8 @@ class GameSessionService(
     private val userProgressRepository: UserProgressRepository,
     private val gameBoardGenerator: GameBoardGenerator,
     private val categoryRepository: CategoryRepository,
-    private val wordRepository: WordRepository
+    private val wordRepository: WordRepository,
+    private val userFoundWordRepository: UserFoundWordRepository
 ) {
 
     @Transactional
@@ -67,10 +71,12 @@ class GameSessionService(
                     direction = pw.direction.name
                 )
             },
+            targetWordCount = gameBoard.placedWords.size,
             currentScore = 0,
+            wordsFound = 0,
             currentCombo = 0,
-            totalWordsFound = 0,
-            gameMode = gameMode.name
+            gameMode = gameMode.name,
+            foundWords = emptyList() // New session, no words found yet
         )
     }
 
@@ -108,10 +114,29 @@ class GameSessionService(
                 score = 0,
                 totalScore = session.totalScore.toLong(),
                 currentCombo = 0,
+                combo = 0,
+                levelUp = false,
                 leveledUp = false,
                 newLevel = null,
                 wordsFoundInSession = session.wordsFound,
                 message = "Word not in list"
+            )
+        }
+
+        // Check if word was already found in this session (prevent duplicates)
+        val alreadyFound = userFoundWordRepository.existsBySessionIdAndWord(sessionId, wordUppercase)
+        if (alreadyFound) {
+            return WordSubmissionResponse(
+                correct = false,
+                score = 0,
+                totalScore = session.totalScore.toLong(),
+                currentCombo = session.highestCombo,
+                combo = session.highestCombo,
+                levelUp = false,
+                leveledUp = false,
+                newLevel = null,
+                wordsFoundInSession = session.wordsFound,
+                message = "Already found"
             )
         }
 
@@ -134,6 +159,16 @@ class GameSessionService(
                 currentCombo = currentCombo
             )
         }
+
+        // Record the found word
+        val foundWord = UserFoundWord(
+            userId = userId,
+            sessionId = sessionId,
+            word = wordUppercase,
+            isReversed = isReversed,
+            scoreEarned = score
+        )
+        userFoundWordRepository.save(foundWord)
 
         // Update session
         val updatedSession = session.copy(
@@ -175,6 +210,8 @@ class GameSessionService(
             score = score,
             totalScore = updatedProgress.totalScore + score,
             currentCombo = currentCombo,
+            combo = currentCombo,
+            levelUp = leveledUp,
             leveledUp = leveledUp,
             newLevel = if (leveledUp) newLevel else null,
             wordsFoundInSession = updatedSession.wordsFound,
@@ -229,6 +266,10 @@ class GameSessionService(
         val userProgress = userProgressRepository.findByUserId(userId)
             ?: throw IllegalArgumentException("User progress not found")
 
+        // Get found words for this session
+        val foundWordsInSession = userFoundWordRepository.findBySessionId(session.id)
+            .map { it.word }
+
         return GameSessionResponse(
             sessionId = session.id.toString(),
             level = userProgress.currentLevel,
@@ -236,10 +277,12 @@ class GameSessionService(
             category = "Unknown", // Would need to track category in session
             grid = emptyList<List<Char>>(),
             words = emptyList(),
+            targetWordCount = 0, // Would need to store this
             currentScore = session.totalScore,
+            wordsFound = session.wordsFound,
             currentCombo = session.highestCombo,
-            totalWordsFound = session.wordsFound,
-            gameMode = session.gameMode.name
+            gameMode = session.gameMode.name,
+            foundWords = foundWordsInSession
         )
     }
 
@@ -310,39 +353,7 @@ class GameSessionService(
     }
 }
 
-// DTOs
-data class GameSessionResponse(
-    val sessionId: String,
-    val level: Int,
-    val gridSize: Int,
-    val category: String,
-    val grid: List<List<Char>>,
-    val words: List<WordInfo>,
-    val currentScore: Int,
-    val currentCombo: Int,
-    val totalWordsFound: Int,
-    val gameMode: String = "CLASSIC"
-)
-
-data class WordInfo(
-    val word: String,
-    val isReversed: Boolean,
-    val startRow: Int,
-    val startCol: Int,
-    val direction: String
-)
-
-data class WordSubmissionResponse(
-    val correct: Boolean,
-    val score: Int,
-    val totalScore: Long,
-    val currentCombo: Int,
-    val leveledUp: Boolean,
-    val newLevel: Int?,
-    val wordsFoundInSession: Int,
-    val message: String
-)
-
+// DTOs specific to service
 data class SessionSummary(
     val sessionId: String,
     val startingLevel: Int,

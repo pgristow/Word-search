@@ -20,9 +20,13 @@ data class SubmitWordRequest(
 data class WordSubmissionResponse(
     val correct: Boolean,
     val score: Int,
-    val combo: Int,
+    val totalScore: Long = 0,
+    val currentCombo: Int = 0,
+    val combo: Int = 0, // Deprecated, use currentCombo
     val levelUp: Boolean = false,
+    val leveledUp: Boolean = false, // Deprecated, use levelUp
     val newLevel: Int? = null,
+    val wordsFoundInSession: Int = 0,
     val message: String
 )
 
@@ -43,12 +47,16 @@ data class GameSessionResponse(
     val currentScore: Int = 0,
     val wordsFound: Int = 0,
     val currentCombo: Int = 0,
-    val gameMode: String = "CLASSIC" // CLASSIC or CASUAL
+    val gameMode: String = "CLASSIC", // CLASSIC or CASUAL
+    val foundWords: List<String> = emptyList() // List of words already found in this session
 )
 
 data class WordInfo(
     val word: String,
-    val isReversed: Boolean = false
+    val isReversed: Boolean = false,
+    val startRow: Int = 0,
+    val startCol: Int = 0,
+    val direction: String = ""
 )
 
 // User Progress DTOs

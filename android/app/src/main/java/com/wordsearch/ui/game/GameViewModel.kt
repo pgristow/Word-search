@@ -46,6 +46,10 @@ class GameViewModel @Inject constructor(
                     val session = result.getOrNull()!!
                     currentSession = session
                     gameStartTime = System.currentTimeMillis()
+
+                    // Initialize found words from session (important for resumed casual games)
+                    _foundWords.value = session.foundWords.map { it.lowercase() }.toSet()
+
                     _uiState.value = GameUiState.Playing(session)
                 } else {
                     _uiState.value = GameUiState.Error(
