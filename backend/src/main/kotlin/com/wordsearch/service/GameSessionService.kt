@@ -56,7 +56,7 @@ class GameSessionService(
             level = userProgress.currentLevel,
             gridSize = gameBoard.gridSize,
             category = category.name,
-            grid = gameBoard.grid.map { it.joinToString("") },
+            grid = gameBoard.grid,
             words = gameBoard.placedWords.map { pw ->
                 WordInfo(
                     word = pw.word,
@@ -211,7 +211,7 @@ class GameSessionService(
             level = userProgress.currentLevel,
             gridSize = 10, // Would need to regenerate board or store it
             category = "Unknown", // Would need to track category in session
-            grid = emptyList(),
+            grid = emptyList<List<Char>>(),
             words = emptyList(),
             currentScore = session.totalScore,
             currentCombo = session.highestCombo,
@@ -293,7 +293,7 @@ data class GameSessionResponse(
     val level: Int,
     val gridSize: Int,
     val category: String,
-    val grid: List<String>,
+    val grid: List<List<Char>>,
     val words: List<WordInfo>,
     val currentScore: Int,
     val currentCombo: Int,
