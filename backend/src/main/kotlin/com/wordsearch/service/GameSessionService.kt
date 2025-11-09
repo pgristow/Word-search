@@ -56,7 +56,7 @@ class GameSessionService(
             level = userProgress.currentLevel,
             gridSize = gameBoard.gridSize,
             category = category.name,
-            grid = gameBoard.grid,
+            grid = gameBoard.grid.map { it.toList() },
             words = gameBoard.placedWords.map { pw ->
                 WordInfo(
                     word = pw.word,
