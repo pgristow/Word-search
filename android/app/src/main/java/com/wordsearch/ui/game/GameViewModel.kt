@@ -103,13 +103,39 @@ class GameViewModel @Inject constructor(
         // If this is the second cell, any adjacent cell is valid
         if (currentPath.size == 1) return true
 
-        // For subsequent cells, must maintain the same direction
-        val prevCell = currentPath[currentPath.size - 2]
-        val (prevRow, prevCol) = prevCell
-        val prevRowDiff = lastRow - prevRow
-        val prevColDiff = lastCol - prevCol
+        // For subsequent cells, check if direction is consistent
+        // Allow the direction to be established by first 2 cells
+        val firstCell = currentPath[0]
+        val secondCell = currentPath[1]
 
-        return rowDiff == prevRowDiff && colDiff == prevColDiff
+        val directionRow = secondCell.first - firstCell.first
+        val directionCol = secondCell.second - firstCell.second
+
+        // Normalize direction (-1, 0, or 1)
+        val normalizedDirRow = when {
+            directionRow > 0 -> 1
+            directionRow < 0 -> -1
+            else -> 0
+        }
+        val normalizedDirCol = when {
+            directionCol > 0 -> 1
+            directionCol < 0 -> -1
+            else -> 0
+        }
+
+        // Check if new cell continues in the same direction
+        val newDirRow = when {
+            rowDiff > 0 -> 1
+            rowDiff < 0 -> -1
+            else -> 0
+        }
+        val newDirCol = when {
+            colDiff > 0 -> 1
+            colDiff < 0 -> -1
+            else -> 0
+        }
+
+        return newDirRow == normalizedDirRow && newDirCol == normalizedDirCol
     }
 
     fun clearSelection() {

@@ -329,6 +329,7 @@ fun WordGrid(
     modifier: Modifier = Modifier
 ) {
     var gridSize by remember { mutableStateOf(Offset.Zero) }
+    var lastSelectedCell by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     val density = LocalDensity.current
 
     BoxWithConstraints(
@@ -344,23 +345,36 @@ fun WordGrid(
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { offset ->
+                        lastSelectedCell = null
                         if (gridSize != Offset.Zero) {
                             val cellSize = gridSize.x / grid[0].size
                             val row = (offset.y / cellSize).toInt().coerceIn(0, grid.size - 1)
                             val col = (offset.x / cellSize).toInt().coerceIn(0, grid[0].size - 1)
+                            lastSelectedCell = row to col
                             onCellSelected(row, col)
                         }
                     },
                     onDrag = { change, _ ->
+                        change.consume()
                         if (gridSize != Offset.Zero) {
                             val cellSize = gridSize.x / grid[0].size
                             val row = (change.position.y / cellSize).toInt().coerceIn(0, grid.size - 1)
                             val col = (change.position.x / cellSize).toInt().coerceIn(0, grid[0].size - 1)
-                            onCellSelected(row, col)
+
+                            // Only call onCellSelected if we moved to a DIFFERENT cell
+                            val currentCell = row to col
+                            if (currentCell != lastSelectedCell) {
+                                lastSelectedCell = currentCell
+                                onCellSelected(row, col)
+                            }
                         }
                     },
                     onDragEnd = {
                         onSelectionComplete()
+                        lastSelectedCell = null
+                    },
+                    onDragCancel = {
+                        lastSelectedCell = null
                     }
                 )
             }
@@ -391,14 +405,14 @@ fun WordGrid(
 fun GridCell(char: Char, isSelected: Boolean) {
     Box(
         modifier = Modifier
-            .size(40.dp)
-            .padding(2.dp)
+            .size(48.dp) // Increased from 40dp for easier selection
+            .padding(3.dp) // Slightly more padding
             .clip(CircleShape)
             .background(
                 if (isSelected) WordSelected else MaterialTheme.colorScheme.surfaceVariant
             )
             .border(
-                width = if (isSelected) 2.dp else 1.dp,
+                width = if (isSelected) 3.dp else 1.5.dp,
                 color = if (isSelected) {
                     MaterialTheme.colorScheme.primary
                 } else {
@@ -410,7 +424,7 @@ fun GridCell(char: Char, isSelected: Boolean) {
     ) {
         Text(
             text = char.uppercase(),
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleLarge,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
             color = if (isSelected) {
                 MaterialTheme.colorScheme.onPrimary
