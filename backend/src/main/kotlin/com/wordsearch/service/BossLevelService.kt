@@ -1,5 +1,6 @@
 package com.wordsearch.service
 
+import com.wordsearch.dto.WordInfo
 import com.wordsearch.model.BossLevelAttempt
 import com.wordsearch.model.BossType
 import com.wordsearch.repository.BossLevelAttemptRepository
