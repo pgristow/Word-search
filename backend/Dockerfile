@@ -4,15 +4,15 @@ FROM gradle:8.5-jdk17 AS builder
 # Set working directory
 WORKDIR /app
 
-# Copy gradle files
-COPY build.gradle.kts settings.gradle.kts gradle.properties ./
-COPY gradle ./gradle
+# Copy gradle files (from backend/ directory since Railway runs from repo root)
+COPY backend/build.gradle.kts backend/settings.gradle.kts backend/gradle.properties ./
+COPY backend/gradle ./gradle
 
 # Download dependencies (cached layer)
 RUN gradle dependencies --no-daemon
 
 # Copy source code
-COPY src ./src
+COPY backend/src ./src
 
 # Build the application
 RUN gradle bootJar --no-daemon
