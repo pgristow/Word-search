@@ -23,7 +23,7 @@ android {
         }
 
         // Backend API configuration
-        buildConfigField("String", "BASE_URL", "\"http://172.23.59.85:8080/\"") // WSL2 IP for phone access
+        buildConfigField("String", "BASE_URL", "\"https://word-search-production.up.railway.app/\"")
         buildConfigField("String", "API_VERSION", "\"v1\"")
     }
 
@@ -35,7 +35,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("String", "BASE_URL", "\"https://your-production-url.com/\"")
+            buildConfigField("String", "BASE_URL", "\"https://word-search-production.up.railway.app/\"")
         }
         debug {
             isDebuggable = true
