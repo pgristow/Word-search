@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.wordsearch.data.model.GameSession
 import com.wordsearch.ui.theme.WordFound
@@ -528,14 +529,16 @@ fun getWordColor(index: Int): Color {
 fun GridCell(char: Char) {
     Box(
         modifier = Modifier
-            .size(48.dp) // Larger cells
+            .size(56.dp) // Even larger cells for better visibility
             .padding(2.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = char.uppercase(),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontSize = 32.sp // Explicit large font size
+            ),
+            fontWeight = FontWeight.Black, // Thickest font weight
             color = MaterialTheme.colorScheme.onSurface
         )
     }
