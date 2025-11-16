@@ -97,11 +97,20 @@ class AchievementService(
         return when (achievement.requirementType) {
             "WORDS_FOUND" -> userProgress.totalWordsFound
             "TOTAL_SCORE" -> userProgress.totalScore.toInt()
-            "BOSS_DEFEATED" -> 0 // Placeholder: needs repository method implementation
+            "BOSS_DEFEATED" -> {
+                // Count successful boss level completions
+                bossLevelAttemptRepository.findAll()
+                    .filter { it.userId == userId && it.completed && it.wordsFound >= it.wordsRequired }
+                    .size
+            }
             "STREAK_DAYS" -> userProgress.currentStreakDays
-            "REVERSED_WORDS" -> userProgress.totalWordsFound / 10 // Estimate, needs tracking
-            "HIGHEST_COMBO" -> 0 // Needs separate tracking
-            "FAST_COMPLETION" -> 0 // Needs separate tracking
+            "REVERSED_WORDS" -> userProgress.totalReversedWordsFound
+            "HIGHEST_COMBO" -> userProgress.highestCombo
+            "FAST_COMPLETION" -> {
+                // Count sessions completed in under 5 minutes (300 seconds)
+                // This is a placeholder - would need session duration tracking
+                0
+            }
             "CURRENT_LEVEL" -> userProgress.currentLevel
             else -> 0
         }

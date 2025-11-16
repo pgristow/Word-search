@@ -239,7 +239,11 @@ class GameBoardGenerator(
         val baseScore = 100 * word.length
         val reverseBonus = if (isReversed) (baseScore * 0.5).toInt() else 0
         val diagonalBonus = if (isDiagonal) (baseScore * 0.25).toInt() else 0
-        val speedBonus = maxOf(0, (60 - timeElapsed) * 10)
+
+        // Reduced speed bonus: max 100 points for instant finds
+        // Formula: (60 - timeElapsed) * 2, capped at 100
+        val speedBonus = minOf(100, maxOf(0, (60 - timeElapsed) * 2))
+
         val comboMultiplier = when (currentCombo) {
             in 2..4 -> 2
             in 5..9 -> 3

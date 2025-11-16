@@ -6,6 +6,7 @@ import com.wordsearch.model.BossType
 import com.wordsearch.repository.BossLevelAttemptRepository
 import com.wordsearch.repository.CategoryRepository
 import com.wordsearch.repository.WordRepository
+import com.wordsearch.repository.UserProgressRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -17,7 +18,8 @@ class BossLevelService(
     private val bossLevelAttemptRepository: BossLevelAttemptRepository,
     private val gameBoardGenerator: GameBoardGenerator,
     private val categoryRepository: CategoryRepository,
-    private val wordRepository: WordRepository
+    private val wordRepository: WordRepository,
+    private val userProgressRepository: UserProgressRepository
 ) {
 
     /**
@@ -183,23 +185,45 @@ class BossLevelService(
             BossType.CHAOS -> 2000
         }
 
-        // Calculate bonus based on performance
+        // Calculate partial credit for failed attempts
+        val partialCreditMultiplier = if (success) {
+            1.0f
+        } else {
+            // Give partial credit based on words found (50% max for incomplete)
+            minOf(0.5f, wordsFound.toFloat() / attempt.wordsRequired)
+        }
+
+        // Calculate bonus based on performance (only for successful completions)
         val timeBonus = if (success) {
             val percentRemaining = ((attempt.timeLimitSeconds - timeTaken).toFloat() / attempt.timeLimitSeconds)
             (baseReward * percentRemaining * 0.5).toInt()
         } else 0
 
         val shufflePenalty = attempt.shufflesOccurred * 50
-        val finalScore = maxOf(0, baseReward + timeBonus - shufflePenalty)
+
+        // Calculate final score with partial credit
+        val finalScore = maxOf(0, ((baseReward * partialCreditMultiplier).toInt() + timeBonus - shufflePenalty))
 
         // Update attempt
         val updatedAttempt = attempt.copy(
             completed = true,
             wordsFound = wordsFound,
             timeTakenSeconds = timeTaken,
-            scoreEarned = if (success) finalScore else 0
+            scoreEarned = finalScore
         )
         bossLevelAttemptRepository.save(updatedAttempt)
+
+        // Add boss level points to user's total score (even for partial credit)
+        if (finalScore > 0) {
+            val userProgress = userProgressRepository.findByUserId(userId)
+                ?: throw IllegalStateException("User progress not found")
+
+            val updatedProgress = userProgress.copy(
+                totalScore = userProgress.totalScore + finalScore,
+                updatedAt = LocalDateTime.now()
+            )
+            userProgressRepository.save(updatedProgress)
+        }
 
         return BossCompletionResponse(
             success = success,

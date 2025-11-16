@@ -109,6 +109,10 @@ class GameSessionService(
         // Validate the submitted word exists in the word list
         val wordUppercase = word.uppercase()
         if (!validWords.contains(wordUppercase)) {
+            // Reset combo on mistake
+            val resetSession = session.copy(currentCombo = 0)
+            gameSessionRepository.save(resetSession)
+
             return WordSubmissionResponse(
                 correct = false,
                 score = 0,
@@ -126,12 +130,16 @@ class GameSessionService(
         // Check if word was already found in this session (prevent duplicates)
         val alreadyFound = userFoundWordRepository.existsBySessionIdAndWord(sessionId, wordUppercase)
         if (alreadyFound) {
+            // Reset combo on mistake
+            val resetSession = session.copy(currentCombo = 0)
+            gameSessionRepository.save(resetSession)
+
             return WordSubmissionResponse(
                 correct = false,
                 score = 0,
                 totalScore = session.totalScore.toLong(),
-                currentCombo = session.highestCombo,
-                combo = session.highestCombo,
+                currentCombo = 0,
+                combo = 0,
                 levelUp = false,
                 leveledUp = false,
                 newLevel = null,
@@ -150,7 +158,20 @@ class GameSessionService(
             currentCombo = 0
         } else {
             // Classic mode: Full competitive scoring
-            currentCombo = session.highestCombo + 1
+            // Check if combo should reset due to time (30 seconds since last word)
+            val now = LocalDateTime.now()
+            val timeSinceLastWord = if (session.lastWordFoundAt != null) {
+                java.time.Duration.between(session.lastWordFoundAt, now).seconds
+            } else {
+                0L
+            }
+
+            // Reset combo if too much time has passed (30 seconds)
+            val comboBeforeWord = if (timeSinceLastWord > 30) 0 else session.currentCombo
+
+            // Increment combo for this successful word
+            currentCombo = comboBeforeWord + 1
+
             score = gameBoardGenerator.calculateWordScore(
                 word = word,
                 isReversed = isReversed,
@@ -174,7 +195,9 @@ class GameSessionService(
         val updatedSession = session.copy(
             totalScore = session.totalScore + score,
             wordsFound = session.wordsFound + 1,
-            highestCombo = maxOf(session.highestCombo, currentCombo)
+            currentCombo = currentCombo,
+            highestCombo = maxOf(session.highestCombo, currentCombo),
+            lastWordFoundAt = LocalDateTime.now()
         )
         gameSessionRepository.save(updatedSession)
 
@@ -280,7 +303,7 @@ class GameSessionService(
             targetWordCount = 0, // Would need to store this
             currentScore = session.totalScore,
             wordsFound = session.wordsFound,
-            currentCombo = session.highestCombo,
+            currentCombo = session.currentCombo,
             gameMode = session.gameMode.name,
             foundWords = foundWordsInSession
         )

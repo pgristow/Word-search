@@ -38,6 +38,12 @@ data class GameSession(
     @Column(name = "highest_combo")
     val highestCombo: Int = 0,
 
+    @Column(name = "current_combo")
+    val currentCombo: Int = 0,
+
+    @Column(name = "last_word_found_at")
+    val lastWordFoundAt: LocalDateTime? = null,
+
     @Column(name = "boss_levels_completed")
     val bossLevelsCompleted: Int = 0,
 
