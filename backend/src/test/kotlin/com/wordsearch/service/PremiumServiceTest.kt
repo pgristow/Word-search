@@ -28,6 +28,13 @@ class PremiumServiceTest {
         premiumSubscriptionRepository = mockk(relaxed = true)
         userRepository = mockk(relaxed = true)
         premiumService = PremiumService(premiumSubscriptionRepository, userRepository)
+        // Default stubs: relaxed Optional<User>/save(S):S otherwise yield Object and fail the
+        // checkcast. Provide a real user and echo saves; individual tests may override.
+        every { userRepository.findById(testUserId) } returns Optional.of(
+            User(id = testUserId, username = "testuser", email = "test@example.com", passwordHash = "hashedpassword")
+        )
+        every { userRepository.save(any()) } answers { firstArg() }
+        every { premiumSubscriptionRepository.save(any()) } answers { firstArg() }
     }
 
     @Test
@@ -134,7 +141,8 @@ class PremiumServiceTest {
         assertTrue(response.isPremium)
         assertNotNull(response.purchaseDate)
         assertNotNull(response.expiryDate)
-        assertEquals(20, response.daysRemaining)
+        // 20 days from now, measured an instant later, truncates to 19 or 20 whole days.
+        assertTrue(response.daysRemaining in 19..20)
         assertEquals("GOOGLE_PLAY", response.purchasePlatform)
         assertTrue(response.autoRenew)
     }
