@@ -24,6 +24,8 @@ class GameSessionServiceCasualTest {
     private lateinit var wordRepository: WordRepository
     private lateinit var userFoundWordRepository: UserFoundWordRepository
     private lateinit var economyService: EconomyService
+    private lateinit var leaderboardService: LeaderboardService
+    private lateinit var userRepository: UserRepository
     private lateinit var service: GameSessionService
 
     private val userId = UUID.randomUUID()
@@ -37,12 +39,16 @@ class GameSessionServiceCasualTest {
         wordRepository = mockk(relaxed = true)
         userFoundWordRepository = mockk(relaxed = true)
         economyService = mockk(relaxed = true)
+        leaderboardService = mockk(relaxed = true)
+        userRepository = mockk(relaxed = true)
+        every { userRepository.findById(any()) } returns Optional.empty()
         val dictionary = DictionaryService("/data/words_test.txt", 3)
         service = GameSessionService(
             gameSessionRepository, userProgressRepository,
             GameBoardGenerator(wordRepository, categoryRepository),
             categoryRepository, wordRepository, userFoundWordRepository,
-            ScoringService(), WordClassifier(dictionary), economyService, mapper
+            ScoringService(), WordClassifier(dictionary), economyService,
+            leaderboardService, userRepository, mapper
         )
         every { gameSessionRepository.save(any()) } answers { firstArg() }
         every { userProgressRepository.save(any()) } answers { firstArg() }

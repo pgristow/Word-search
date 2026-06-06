@@ -22,6 +22,8 @@ class GameSessionService(
     private val scoringService: ScoringService,
     private val wordClassifier: WordClassifier,
     private val economyService: EconomyService,
+    private val leaderboardService: LeaderboardService,
+    private val userRepository: UserRepository,
     private val objectMapper: com.fasterxml.jackson.databind.ObjectMapper
 ) {
 
@@ -232,6 +234,19 @@ class GameSessionService(
         }
         userProgressRepository.save(updatedProgress)
 
+        // Project the user's lifetime classic score onto the global leaderboard.
+        if (affectsProgression) {
+            userRepository.findById(userId).orElse(null)?.let { user ->
+                leaderboardService.upsert(
+                    userId = userId,
+                    username = user.username,
+                    boardType = LeaderboardService.BOARD_GLOBAL_CLASSIC,
+                    periodKey = LeaderboardService.PERIOD_ALL_TIME,
+                    score = updatedProgress.totalScore
+                )
+            }
+        }
+
         // Bonus words award coins; classic targets do not. coinBalance always
         // reflects the user's wallet after this submission.
         val coinsEarned: Long
@@ -298,6 +313,17 @@ class GameSessionService(
                 updatedAt = LocalDateTime.now()
             )
             userProgressRepository.save(updatedProgress)
+
+            // Project the user's casual best onto the casual leaderboard.
+            userRepository.findById(userId).orElse(null)?.let { user ->
+                leaderboardService.upsert(
+                    userId = userId,
+                    username = user.username,
+                    boardType = LeaderboardService.BOARD_CASUAL_BEST,
+                    periodKey = LeaderboardService.PERIOD_ALL_TIME,
+                    score = updatedProgress.casualBestScore
+                )
+            }
         }
 
         return SessionSummary(

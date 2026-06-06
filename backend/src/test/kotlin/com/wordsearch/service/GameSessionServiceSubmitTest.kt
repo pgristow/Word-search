@@ -27,6 +27,8 @@ class GameSessionServiceSubmitTest {
     private lateinit var wordRepository: WordRepository
     private lateinit var userFoundWordRepository: UserFoundWordRepository
     private lateinit var economyService: EconomyService
+    private lateinit var leaderboardService: LeaderboardService
+    private lateinit var userRepository: UserRepository
     private lateinit var service: GameSessionService
 
     private val userId = UUID.randomUUID()
@@ -50,11 +52,17 @@ class GameSessionServiceSubmitTest {
         economyService = mockk(relaxed = true)
         every { economyService.bonusWordCoins(any()) } answers { 5L + 2L * maxOf(0, firstArg<Int>() - 3) }
         every { economyService.earn(any(), any(), any(), any()) } returns 42L
+        leaderboardService = mockk(relaxed = true)
+        userRepository = mockk(relaxed = true)
+        every { userRepository.findById(any()) } returns Optional.of(
+            User(id = userId, username = "tester", email = "t@e.com", passwordHash = "x")
+        )
         service = GameSessionService(
             gameSessionRepository, userProgressRepository,
             GameBoardGenerator(wordRepository, categoryRepository),
             categoryRepository, wordRepository, userFoundWordRepository,
-            ScoringService(), WordClassifier(dictionary), economyService, mapper
+            ScoringService(), WordClassifier(dictionary), economyService,
+            leaderboardService, userRepository, mapper
         )
 
         val session = GameSession(
