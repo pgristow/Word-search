@@ -2,6 +2,7 @@ package com.wordsearch.di
 
 import com.wordsearch.BuildConfig
 import com.wordsearch.data.api.AuthApi
+import com.wordsearch.data.api.EconomyApi
 import com.wordsearch.data.api.GameApi
 import com.wordsearch.data.api.LeagueApi
 import com.wordsearch.data.api.LeaderboardApi
@@ -96,5 +97,11 @@ object NetworkModule {
     @Singleton
     fun provideLeaderboardApi(retrofit: Retrofit): LeaderboardApi {
         return retrofit.create(LeaderboardApi::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideEconomyApi(retrofit: Retrofit): EconomyApi {
+        return retrofit.create(EconomyApi::class.java)
     }
 }
