@@ -258,8 +258,9 @@ fun GamePlayingContent(
                                 modifier = Modifier.fillMaxWidth()
                             )
                             // Score breakdown for regular correct words
-                            if (isSuccess == true && lastWordResult != null) {
-                                ScoreBreakdownRow(lastWordResult)
+                            val result = lastWordResult
+                            if (isSuccess == true && result != null) {
+                                ScoreBreakdownRow(result)
                             }
                         }
                     }
@@ -714,8 +715,8 @@ fun WordGrid(
     }
 }
 
-// Generate different colors for each found word
-@Composable
+// Generate different colors for each found word.
+// Plain function (no composition) so it can be used inside DrawScope/drawBehind.
 fun getWordColor(index: Int): Color {
     val colors = listOf(
         Color(0xFF4CAF50), // Green
