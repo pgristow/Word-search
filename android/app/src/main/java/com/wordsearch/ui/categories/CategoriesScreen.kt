@@ -25,6 +25,7 @@ fun CategoriesScreen(
     onNavigateToAchievements: () -> Unit,
     onNavigateToLeaderboard: () -> Unit,
     onNavigateToDailyChallenge: () -> Unit,
+    onNavigateToStore: () -> Unit = {},
     onLogout: () -> Unit,
     viewModel: CategoriesViewModel = hiltViewModel()
 ) {
@@ -59,6 +60,16 @@ fun CategoriesScreen(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false }
                     ) {
+                        DropdownMenuItem(
+                            text = { Text("Store") },
+                            onClick = {
+                                showMenu = false
+                                onNavigateToStore()
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.ShoppingCart, contentDescription = null)
+                            }
+                        )
                         DropdownMenuItem(
                             text = { Text("Logout") },
                             onClick = {
