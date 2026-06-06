@@ -42,6 +42,18 @@ class GameViewModel @Inject constructor(
     private val _foundWordPaths = MutableStateFlow<List<Pair<String, List<Pair<Int, Int>>>>>(emptyList())
     val foundWordPaths: StateFlow<List<Pair<String, List<Pair<Int, Int>>>>> = _foundWordPaths.asStateFlow()
 
+    // Hint: cells of the most-recently hinted word (cleared when a new selection starts)
+    private val _hintedCells = MutableStateFlow<List<Pair<Int, Int>>>(emptyList())
+    val hintedCells: StateFlow<List<Pair<Int, Int>>> = _hintedCells.asStateFlow()
+
+    // Live coin balance (updated after word submissions and hint use)
+    private val _coinBalance = MutableStateFlow<Long>(0L)
+    val coinBalance: StateFlow<Long> = _coinBalance.asStateFlow()
+
+    // Transient hint feedback message (error or confirmation)
+    private val _hintMessage = MutableStateFlow<String?>(null)
+    val hintMessage: StateFlow<String?> = _hintMessage.asStateFlow()
+
     private var gameStartTime: Long = 0
     private var currentSession: GameSession? = null
 
@@ -134,6 +146,8 @@ class GameViewModel @Inject constructor(
 
     fun startSelection(row: Int, col: Int) {
         _selectedCells.value = listOf(row to col)
+        // Clear hint highlight when the user starts a new drag
+        _hintedCells.value = emptyList()
 
         // Clear any previous message and score breakdown when starting a new selection
         val currentState = _uiState.value
@@ -221,6 +235,11 @@ class GameViewModel @Inject constructor(
         val currentState = _uiState.value
         if (currentState !is GameUiState.Playing) return
 
+        // Keep coin balance in sync
+        if (response.coinBalance > 0L) {
+            _coinBalance.value = response.coinBalance
+        }
+
         if (response.correct) {
             // Save the path for this word (for drawing lines)
             _foundWordPaths.value = _foundWordPaths.value + (word.lowercase() to path)
@@ -289,6 +308,34 @@ class GameViewModel @Inject constructor(
                 isSuccess = false
             )
         }
+    }
+
+    fun useHint() {
+        val session = currentSession ?: return
+
+        viewModelScope.launch {
+            try {
+                val result = gameRepository.useHint(session.sessionId)
+                if (result.isSuccess) {
+                    val hintResponse = result.getOrNull()!!
+                    // Expose the hinted cells for distinct highlight in the grid
+                    _hintedCells.value = hintResponse.cells.map { it.row to it.col }
+                    // Update coin balance
+                    _coinBalance.value = hintResponse.coinBalance
+                    _hintMessage.value = "Hint: ${hintResponse.word}"
+                } else {
+                    val errorMessage = result.exceptionOrNull()?.message ?: "Could not use hint"
+                    _hintMessage.value = errorMessage
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error using hint")
+                _hintMessage.value = e.message ?: "An error occurred"
+            }
+        }
+    }
+
+    fun clearHintMessage() {
+        _hintMessage.value = null
     }
 
     fun continueAfterLevelUp() {
