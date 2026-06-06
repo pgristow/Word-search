@@ -31,6 +31,7 @@ class SecurityConfig(
                     .requestMatchers("/api/auth/**").permitAll()
                     .requestMatchers("/h2-console/**").permitAll() // For H2 database console
                     .requestMatchers("/actuator/health", "/actuator/health/**").permitAll() // Host health checks
+                    .requestMatchers("/error").permitAll() // Let real error responses through instead of masking as 401
                     .anyRequest().authenticated()
             }
             .headers { it.frameOptions { frameOptions -> frameOptions.disable() } } // For H2 console
