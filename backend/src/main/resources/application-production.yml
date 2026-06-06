@@ -62,6 +62,9 @@ jwt:
 server:
   # Hosts like Render inject the port via $PORT; default to 8080 elsewhere.
   port: ${PORT:8080}
+  # Bind all interfaces so the platform can reach the app from outside the container.
+  # Without this the app may bind to localhost only -> Render "No open ports detected".
+  address: 0.0.0.0
   compression:
     enabled: true
     mime-types: application/json,application/xml,text/html,text/xml,text/plain
