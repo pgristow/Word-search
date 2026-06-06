@@ -10,6 +10,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -593,10 +594,13 @@ fun WordGrid(
             // Per-cell highlight state
             val selectedSet = selectedCells.toHashSet()
             val hintedSet = hintedCells.toHashSet()
-            val foundColorByCell = HashMap<Pair<Int, Int>, Color>().apply {
-                foundWordPaths.forEachIndexed { index, (_, path) ->
-                    val c = getWordColor(index)
-                    path.forEach { cell -> this[cell] = c }
+            val foundColorByCell = HashMap<Pair<Int, Int>, Color>()
+            val foundOrderByCell = HashMap<Pair<Int, Int>, Int>()
+            foundWordPaths.forEachIndexed { index, (_, path) ->
+                val c = getWordColor(index)
+                path.forEachIndexed { i, cell ->
+                    foundColorByCell[cell] = c
+                    foundOrderByCell[cell] = i
                 }
             }
 
@@ -641,7 +645,7 @@ fun WordGrid(
                                 isFound -> { tileColor = foundColorByCell[cell]!!; textColor = Color.White }
                                 else -> { tileColor = MaterialTheme.colorScheme.surface; textColor = MaterialTheme.colorScheme.onSurface }
                             }
-                            GridCell(char, Modifier.weight(1f).fillMaxHeight(), tileColor, textColor, isFound)
+                            GridCell(char, Modifier.weight(1f).fillMaxHeight(), tileColor, textColor, isFound, foundOrderByCell[cell] ?: 0)
                         }
                     }
                 }
@@ -662,27 +666,29 @@ fun GridCell(
     modifier: Modifier = Modifier,
     tileColor: Color = Color.White,
     textColor: Color = Color.Black,
-    isFound: Boolean = false
+    isFound: Boolean = false,
+    waveIndex: Int = 0
 ) {
-    // Smoothly fade the tile colour; when a word is found the tile jumps up, flips, and
-    // casts a shadow for a satisfying pop.
-    val animColor by animateColorAsState(tileColor, tween(220), label = "tileColor")
+    // Smoothly fade the tile colour; when a word is found the tiles jump + flip in
+    // sequence down the word so it reads as a wave. Gentle lift + flattened 3D flip so
+    // neighbouring tiles aren't covered, and everything settles back to rest.
+    val animColor by animateColorAsState(tileColor, tween(240), label = "tileColor")
     val flip = remember { Animatable(0f) }
     val lift = remember { Animatable(0f) }
     LaunchedEffect(isFound) {
+        flip.snapTo(0f); lift.snapTo(0f)
         if (isFound) {
-            flip.snapTo(0f); lift.snapTo(0f)
+            delay(waveIndex * 95L) // stagger per position -> wave
             launch {
                 lift.animateTo(1f, keyframes {
-                    durationMillis = 480
+                    durationMillis = 460
                     0f at 0
-                    1f at 170
-                    0f at 480
+                    1f at 180
+                    0f at 460
                 })
             }
-            flip.animateTo(360f, tween(480, easing = FastOutSlowInEasing))
-        } else {
-            flip.snapTo(0f); lift.snapTo(0f)
+            flip.animateTo(360f, tween(700, easing = FastOutSlowInEasing))
+            flip.snapTo(0f) // rest exactly where it started
         }
     }
     // Fills the cell its parent allotted (via weight) so the visible tile lines up
@@ -696,8 +702,9 @@ fun GridCell(
                 .padding(3.dp)
                 .graphicsLayer {
                     rotationY = flip.value
-                    translationY = -lift.value * 14.dp.toPx()
-                    shadowElevation = lift.value * 12.dp.toPx()
+                    translationY = -lift.value * 9.dp.toPx()
+                    shadowElevation = lift.value * 5.dp.toPx()
+                    cameraDistance = 24f * density // flatter perspective so flip stays in-bounds
                     shape = RoundedCornerShape(10.dp)
                     clip = true
                 }
