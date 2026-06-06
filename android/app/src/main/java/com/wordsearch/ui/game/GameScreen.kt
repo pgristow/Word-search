@@ -2,8 +2,15 @@ package com.wordsearch.ui.game
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -623,15 +630,18 @@ fun WordGrid(
                     Row(modifier = Modifier.fillMaxWidth().weight(1f)) {
                         row.forEachIndexed { c, char ->
                             val cell = r to c
+                            val isSelected = selectedSet.contains(cell)
+                            val isHinted = hintedSet.contains(cell)
+                            val isFound = !isSelected && !isHinted && foundColorByCell[cell] != null
                             val tileColor: Color
                             val textColor: Color
                             when {
-                                selectedSet.contains(cell) -> { tileColor = SelectBlue; textColor = Color.White }
-                                hintedSet.contains(cell) -> { tileColor = HintHighlight; textColor = Color.White }
-                                foundColorByCell[cell] != null -> { tileColor = foundColorByCell[cell]!!; textColor = Color.White }
+                                isSelected -> { tileColor = SelectBlue; textColor = Color.White }
+                                isHinted -> { tileColor = HintHighlight; textColor = Color.White }
+                                isFound -> { tileColor = foundColorByCell[cell]!!; textColor = Color.White }
                                 else -> { tileColor = MaterialTheme.colorScheme.surface; textColor = MaterialTheme.colorScheme.onSurface }
                             }
-                            GridCell(char, Modifier.weight(1f).fillMaxHeight(), tileColor, textColor)
+                            GridCell(char, Modifier.weight(1f).fillMaxHeight(), tileColor, textColor, isFound)
                         }
                     }
                 }
@@ -651,25 +661,57 @@ fun GridCell(
     char: Char,
     modifier: Modifier = Modifier,
     tileColor: Color = Color.White,
-    textColor: Color = Color.Black
+    textColor: Color = Color.Black,
+    isFound: Boolean = false
 ) {
+    // Smoothly fade the tile colour; when a word is found the tile jumps up, flips, and
+    // casts a shadow for a satisfying pop.
+    val animColor by animateColorAsState(tileColor, tween(220), label = "tileColor")
+    val flip = remember { Animatable(0f) }
+    val lift = remember { Animatable(0f) }
+    LaunchedEffect(isFound) {
+        if (isFound) {
+            flip.snapTo(0f); lift.snapTo(0f)
+            launch {
+                lift.animateTo(1f, keyframes {
+                    durationMillis = 480
+                    0f at 0
+                    1f at 170
+                    0f at 480
+                })
+            }
+            flip.animateTo(360f, tween(480, easing = FastOutSlowInEasing))
+        } else {
+            flip.snapTo(0f); lift.snapTo(0f)
+        }
+    }
     // Fills the cell its parent allotted (via weight) so the visible tile lines up
-    // exactly with the touch + highlight grid. The inset padding shows the board
-    // trough between tiles.
-    Box(
-        modifier = modifier
-            .padding(3.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(tileColor),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = char.uppercase(),
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = textColor,
-            maxLines = 1
-        )
+    // exactly with the touch + highlight grid. Font scales with the tile so the bigger
+    // grids stay legible.
+    BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
+        val fontSp = (maxWidth.value * 0.5f).sp
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(3.dp)
+                .graphicsLayer {
+                    rotationY = flip.value
+                    translationY = -lift.value * 14.dp.toPx()
+                    shadowElevation = lift.value * 12.dp.toPx()
+                    shape = RoundedCornerShape(10.dp)
+                    clip = true
+                }
+                .background(animColor),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = char.uppercase(),
+                fontSize = fontSp,
+                fontWeight = FontWeight.Bold,
+                color = textColor,
+                maxLines = 1
+            )
+        }
     }
 }
 
