@@ -30,6 +30,7 @@ class SecurityConfig(
                 auth
                     .requestMatchers("/api/auth/**").permitAll()
                     .requestMatchers("/h2-console/**").permitAll() // For H2 database console
+                    .requestMatchers("/actuator/health", "/actuator/health/**").permitAll() // Host health checks
                     .anyRequest().authenticated()
             }
             .headers { it.frameOptions { frameOptions -> frameOptions.disable() } } // For H2 console

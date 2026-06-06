@@ -1,0 +1,50 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Deploys the Spring Boot backend (from backend/Dockerfile) + a managed Postgres.
+# In Render: New > Blueprint, point at this repo. No code changes needed; the app
+# reads the env vars below. Flyway applies migrations V1..V6 automatically on boot.
+#
+# NOTE: Render's FREE Postgres is deleted ~30 days after creation. For a permanent
+# free database, create a Neon project (neon.tech) instead and set DB_HOST/DB_PORT/
+# DB_NAME/SPRING_DATASOURCE_USERNAME/SPRING_DATASOURCE_PASSWORD on the web service to
+# Neon's values (and remove the `databases:` block + the fromDatabase env vars).
+# The free web service also sleeps after ~15 min idle (first request is a cold start).
+
+databases:
+  - name: wordsearch-db
+    plan: free
+    databaseName: wordsearch
+    user: wordsearch
+
+services:
+  - type: web
+    name: wordsearch-backend
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: production
+      - key: DB_HOST
+        fromDatabase:
+          name: wordsearch-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: wordsearch-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: wordsearch-db
+          property: database
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: wordsearch-db
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: wordsearch-db
+          property: password
+      - key: JWT_SECRET
+        generateValue: true

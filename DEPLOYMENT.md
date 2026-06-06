@@ -7,7 +7,7 @@
 4. [Production Deployment](#production-deployment)
 5. [Environment Variables](#environment-variables)
 6. [Database Migrations](#database-migrations)
-7. [Railway database (online leaderboards)](#railway-database-online-leaderboards)
+7. [Free hosting on Render (online leaderboards)](#free-hosting-on-render-online-leaderboards)
 8. [Monitoring & Health Checks](#monitoring--health-checks)
 9. [Troubleshooting](#troubleshooting)
 
@@ -264,37 +264,45 @@ docker exec -i wordsearch-postgres psql -U wordsearch_user wordsearch < backup.s
 
 ---
 
-## Railway database (online leaderboards)
+## Free hosting on Render (online leaderboards)
 
-The backend is plain Spring Boot + PostgreSQL. Railway hosts **both** the app (from
-`backend/Dockerfile`, see `railway.json`/`railway.toml`) **and** a managed Postgres
-database, so the competitive, league, and casual leaderboards are reachable online with
-**no code changes** — only the `SPRING_DATASOURCE_*` environment variables.
+The backend is plain Spring Boot + PostgreSQL. **Render** can host both the app (from
+`backend/Dockerfile`) and a managed Postgres for free, making the competitive, league, and
+casual leaderboards reachable online with **no code changes**. The repo ships a
+`render.yaml` Blueprint that wires it all together.
 
-### 1. Add a Postgres service
-In your Railway project: **New → Database → Add PostgreSQL**. Railway provisions it and
-exposes reference variables (`PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`).
+### 1. Deploy the Blueprint
+1. Push this branch to GitHub (already connected).
+2. In Render: **New → Blueprint**, select this repo. Render reads `render.yaml` and creates:
+   - a free **PostgreSQL** database (`wordsearch-db`), and
+   - a Dockerized **web service** (`wordsearch-backend`) built from `backend/Dockerfile`.
+3. Click **Apply**. The database env vars (`DB_HOST`, `DB_PORT`, `DB_NAME`,
+   `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`) and a generated `JWT_SECRET`
+   are injected automatically; `SPRING_PROFILES_ACTIVE=production` is set.
 
-### 2. Point the backend service at it (env vars)
-On the **backend** service in Railway, set these variables (using Railway's reference
-syntax so they track the Postgres service automatically):
-```bash
-SPRING_DATASOURCE_URL=jdbc:postgresql://${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}
-SPRING_DATASOURCE_USERNAME=${{Postgres.PGUSER}}
-SPRING_DATASOURCE_PASSWORD=${{Postgres.PGPASSWORD}}
-SPRING_PROFILES_ACTIVE=production
-JWT_SECRET=<a long random secret>
-```
-`application-production.yml` already reads these and uses `org.postgresql.Driver` — nothing
-to edit in the app.
+On first boot Flyway applies migrations `V1..V6`. Verify the new tables exist
+(`leaderboard_entries`, `league_cohorts`, `league_memberships`, `coin_transactions`) in the
+database's **Data** tab.
 
-### 3. Deploy — migrations run automatically
-On deploy, Flyway runs on boot (`spring.flyway.enabled=true`) and applies `V1..V6` to the
-Railway Postgres. Verify the new tables exist (`leaderboard_entries`, `league_cohorts`,
-`league_memberships`, `coin_transactions`) via Railway's Postgres "Data" tab or `psql`.
+### 2. Point the Android app at it
+After the service is live, Render gives it a URL like
+`https://wordsearch-backend.onrender.com`. Set that as `BASE_URL` in
+`android/app/build.gradle.kts` (replacing the old Railway URL), rebuild the app.
 
-> Connection-pool note: keep HikariCP `maximum-pool-size` (production default 20) at or
-> below the Postgres plan's connection limit; lower it if you see pool exhaustion.
+### Free-tier caveats (important)
+- **Web service sleeps after ~15 min idle** → the first request after a lull is a slow
+  cold start (~30–60s). Fine for hobby/testing.
+- **Render's free Postgres is deleted ~30 days after creation.** For a *permanent* free
+  database, create a **Neon** project (<https://neon.tech>) and set `DB_HOST`/`DB_PORT`/
+  `DB_NAME`/`SPRING_DATASOURCE_USERNAME`/`SPRING_DATASOURCE_PASSWORD` on the web service to
+  Neon's values (remove the `databases:` block + `fromDatabase` entries from `render.yaml`).
+  No app code changes either way.
+
+### Alternative: any host that runs Docker + Postgres
+The app only needs `SPRING_PROFILES_ACTIVE=production` plus either a full
+`SPRING_DATASOURCE_URL` **or** the `DB_HOST`/`DB_PORT`/`DB_NAME` parts (+ username/password),
+and it binds to `$PORT` if the host sets one. This works on Railway, Fly.io, Koyeb, a plain
+VM, etc.
 
 ## Monitoring & Health Checks
 

@@ -4,7 +4,9 @@ spring:
 
   # Database Configuration
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/wordsearch}
+    # Use a full SPRING_DATASOURCE_URL if provided (e.g. Railway); otherwise build the
+    # JDBC URL from individual DB_HOST/DB_PORT/DB_NAME parts (e.g. Render Blueprint).
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:wordsearch}}
     username: ${SPRING_DATASOURCE_USERNAME:wordsearch_user}
     password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: org.postgresql.Driver
@@ -58,7 +60,8 @@ jwt:
 
 # Server Configuration
 server:
-  port: 8080
+  # Hosts like Render inject the port via $PORT; default to 8080 elsewhere.
+  port: ${PORT:8080}
   compression:
     enabled: true
     mime-types: application/json,application/xml,text/html,text/xml,text/plain
