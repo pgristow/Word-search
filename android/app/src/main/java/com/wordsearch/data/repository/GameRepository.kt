@@ -47,10 +47,11 @@ class GameRepository @Inject constructor(
         word: String,
         isReversed: Boolean,
         isDiagonal: Boolean,
-        timeElapsed: Int
+        timeElapsed: Int,
+        path: List<CellDto> = emptyList()
     ): Result<WordSubmissionResponse> = withContext(Dispatchers.IO) {
         try {
-            val request = SubmitWordRequest(word, isReversed, isDiagonal, timeElapsed)
+            val request = SubmitWordRequest(word, isReversed, isDiagonal, timeElapsed, path)
             val response = gameApi.submitWord(sessionId, request)
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
