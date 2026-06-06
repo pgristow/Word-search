@@ -33,6 +33,9 @@ data class Category(
     @Column(name = "is_active")
     val isActive: Boolean = true,
 
+    @Column(name = "coin_unlock_cost")
+    val coinUnlockCost: Int = 0,
+
     @Column(name = "created_at")
     val createdAt: LocalDateTime = LocalDateTime.now()
 )

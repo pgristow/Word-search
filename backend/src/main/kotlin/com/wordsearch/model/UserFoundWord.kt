@@ -27,5 +27,14 @@ data class UserFoundWord(
     val scoreEarned: Int,
 
     @Column(name = "found_at")
-    val foundAt: LocalDateTime = LocalDateTime.now()
+    val foundAt: LocalDateTime = LocalDateTime.now(),
+
+    @Column(name = "is_bonus")
+    val isBonus: Boolean = false,
+
+    @Column(name = "word_length")
+    val wordLength: Int = 0,
+
+    @Column(name = "path", columnDefinition = "TEXT")
+    val path: String? = null
 )

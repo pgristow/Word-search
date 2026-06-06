@@ -39,6 +39,21 @@ data class UserProgress(
     @Column(name = "casual_puzzles_completed")
     val casualPuzzlesCompleted: Int = 0,
 
+    @Column(name = "coins")
+    val coins: Long = 0,
+
+    @Column(name = "total_bonus_words_found")
+    val totalBonusWordsFound: Int = 0,
+
+    @Column(name = "longest_word_found")
+    val longestWordFound: Int = 0,
+
+    @Column(name = "weekly_score")
+    val weeklyScore: Long = 0,
+
+    @Column(name = "casual_best_score")
+    val casualBestScore: Long = 0,
+
     @Column(name = "last_played_at")
     val lastPlayedAt: LocalDateTime? = null,
 

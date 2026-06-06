@@ -55,5 +55,8 @@ data class GameSession(
     val gameMode: GameMode = GameMode.CLASSIC,
 
     @Column(name = "is_paused")
-    val isPaused: Boolean = false
+    val isPaused: Boolean = false,
+
+    @Column(name = "board_state", columnDefinition = "TEXT")
+    val boardState: String? = null
 )
