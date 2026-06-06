@@ -137,6 +137,7 @@ fun GameScreen(
                         session = state.session,
                         message = state.message,
                         isSuccess = state.isSuccess,
+                        isBonus = state.isBonus,
                         gameMode = gameMode,
                         viewModel = viewModel
                     )
@@ -172,17 +173,24 @@ fun GameScreen(
     }
 }
 
+// Amber/gold tone for bonus word feedback
+private val BonusGold = Color(0xFFFFC107)
+private val BonusGoldContainer = Color(0xFFFFF8E1)
+
 @Composable
 fun GamePlayingContent(
     session: GameSession,
     message: String?,
     isSuccess: Boolean?,
+    isBonus: Boolean = false,
     gameMode: String,
     viewModel: GameViewModel
 ) {
     val selectedCells by viewModel.selectedCells.collectAsState()
     val foundWords by viewModel.foundWords.collectAsState()
+    val bonusWords by viewModel.bonusWords.collectAsState()
     val foundWordPaths by viewModel.foundWordPaths.collectAsState()
+    val lastWordResult by viewModel.lastWordResult.collectAsState()
     val isCasualMode = gameMode == "CASUAL"
 
     Column(
@@ -191,7 +199,7 @@ fun GamePlayingContent(
             .padding(16.dp)
     ) {
         // Score and combo
-        GameStatsRow(session, isCasualMode)
+        GameStatsRow(session, isCasualMode, bonusWords.size)
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -202,29 +210,43 @@ fun GamePlayingContent(
             exit = fadeOut()
         ) {
             message?.let {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isSuccess == true) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.errorContainer
+                if (isBonus) {
+                    // Gold/amber bonus word card
+                    BonusWordFeedback(
+                        message = it,
+                        lastWordResult = lastWordResult
+                    )
+                } else {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSuccess == true) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.errorContainer
+                            }
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            // Score breakdown for regular correct words
+                            if (isSuccess == true && lastWordResult != null) {
+                                ScoreBreakdownRow(lastWordResult)
+                            }
                         }
-                    )
-                ) {
-                    Text(
-                        text = it,
-                        modifier = Modifier.padding(12.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center
-                    )
+                    }
                 }
             }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Show selected word (for debugging)
+        // Show selected word
         if (selectedCells.isNotEmpty()) {
             val selectedWord = buildString {
                 selectedCells.forEach { (row, col) ->
@@ -264,17 +286,121 @@ fun GamePlayingContent(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Horizontal scrollable word list
+        // Horizontal scrollable target word list
         HorizontalWordsList(
             words = session.words.map { it.word },
             foundWords = foundWords,
             isCasualMode = isCasualMode
         )
+
+        // Bonus words section — only visible when at least one bonus word has been found
+        if (bonusWords.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            BonusWordsList(bonusWords = bonusWords)
+        }
     }
 }
 
 @Composable
-fun GameStatsRow(session: GameSession, isCasualMode: Boolean) {
+private fun BonusWordFeedback(
+    message: String,
+    lastWordResult: LastWordResult?
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = BonusGoldContainer),
+        border = BorderStroke(1.5.dp, BonusGold)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF6D4C00), // dark amber text
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (lastWordResult != null) {
+                ScoreBreakdownRow(lastWordResult)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScoreBreakdownRow(result: LastWordResult) {
+    val breakdown = result.scoreBreakdown
+    if (breakdown.isEmpty()) return
+
+    val base = breakdown["base"] ?: 0
+    val lengthBonus = breakdown["lengthBonus"] ?: 0
+    val comboMultiplier = breakdown["comboMultiplier"] ?: 1
+
+    Spacer(modifier = Modifier.height(4.dp))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "$base  +$lengthBonus  ×$comboMultiplier = ${result.score}",
+            style = MaterialTheme.typography.labelSmall,
+            color = if (result.isBonus) Color(0xFF8D6000) else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (result.coinsEarned > 0) {
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "+${result.coinsEarned}⊙",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFB8860B)
+            )
+        }
+    }
+}
+
+@Composable
+private fun BonusWordsList(bonusWords: Set<String>) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = BonusGoldContainer),
+        border = BorderStroke(1.dp, BonusGold)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            Text(
+                text = "Bonus Words (${bonusWords.size})",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF6D4C00)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                bonusWords.forEach { word ->
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = BonusGold.copy(alpha = 0.25f),
+                        border = BorderStroke(1.dp, BonusGold)
+                    ) {
+                        Text(
+                            text = word.uppercase(),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF6D4C00)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun GameStatsRow(session: GameSession, isCasualMode: Boolean, bonusWordCount: Int = 0) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isCasualMode) Arrangement.SpaceEvenly else Arrangement.SpaceAround
@@ -295,6 +421,43 @@ fun GameStatsRow(session: GameSession, isCasualMode: Boolean) {
                 icon = Icons.Default.Favorite,
                 label = "Combo",
                 value = "${session.currentCombo}x"
+            )
+        }
+        // Show bonus word count whenever any bonus words have been found
+        if (bonusWordCount > 0) {
+            BonusStatChip(count = bonusWordCount)
+        }
+    }
+}
+
+@Composable
+fun BonusStatChip(count: Int) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = BonusGoldContainer,
+        border = BorderStroke(1.dp, BonusGold)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Star,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = BonusGold
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = count.toString(),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF6D4C00)
+            )
+            Text(
+                text = " Bonus",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF6D4C00)
             )
         }
     }

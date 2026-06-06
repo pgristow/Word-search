@@ -70,11 +70,19 @@ data class PlacedWord(
 )
 
 // Word submission
+data class CellDto(
+    @SerializedName("row")
+    val row: Int,
+    @SerializedName("col")
+    val col: Int
+)
+
 data class SubmitWordRequest(
     val word: String,
     val isReversed: Boolean,
     val isDiagonal: Boolean,
-    val timeElapsed: Int
+    val timeElapsed: Int,
+    val path: List<CellDto> = emptyList()
 )
 
 data class WordSubmissionResponse(
@@ -89,7 +97,23 @@ data class WordSubmissionResponse(
     @SerializedName("newLevel")
     val newLevel: Int?,
     @SerializedName("message")
-    val message: String
+    val message: String,
+    @SerializedName("totalScore")
+    val totalScore: Int = 0,
+    @SerializedName("currentCombo")
+    val currentCombo: Int = 0,
+    @SerializedName("wordsFoundInSession")
+    val wordsFoundInSession: Int = 0,
+    @SerializedName("isBonus")
+    val isBonus: Boolean = false,
+    @SerializedName("wordLength")
+    val wordLength: Int = 0,
+    @SerializedName("coinsEarned")
+    val coinsEarned: Long = 0,
+    @SerializedName("coinBalance")
+    val coinBalance: Long = 0,
+    @SerializedName("scoreBreakdown")
+    val scoreBreakdown: Map<String, Int> = emptyMap()
 )
 
 // User Progress

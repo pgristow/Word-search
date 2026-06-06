@@ -2,6 +2,7 @@ package com.wordsearch.ui.game
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wordsearch.data.model.CellDto
 import com.wordsearch.data.model.GameSession
 import com.wordsearch.data.model.SubmitWordRequest
 import com.wordsearch.data.model.WordSubmissionResponse
@@ -29,6 +30,14 @@ class GameViewModel @Inject constructor(
     private val _foundWords = MutableStateFlow<Set<String>>(emptySet())
     val foundWords: StateFlow<Set<String>> = _foundWords.asStateFlow()
 
+    // Bonus words found (not part of the target word list)
+    private val _bonusWords = MutableStateFlow<Set<String>>(emptySet())
+    val bonusWords: StateFlow<Set<String>> = _bonusWords.asStateFlow()
+
+    // Last word submission result, used to drive score-breakdown UI
+    private val _lastWordResult = MutableStateFlow<LastWordResult?>(null)
+    val lastWordResult: StateFlow<LastWordResult?> = _lastWordResult.asStateFlow()
+
     // Track found word paths for drawing lines
     private val _foundWordPaths = MutableStateFlow<List<Pair<String, List<Pair<Int, Int>>>>>(emptyList())
     val foundWordPaths: StateFlow<List<Pair<String, List<Pair<Int, Int>>>>> = _foundWordPaths.asStateFlow()
@@ -49,6 +58,8 @@ class GameViewModel @Inject constructor(
 
                     // Initialize found words from session (important for resumed casual games)
                     _foundWords.value = session.foundWords.map { it.lowercase() }.toSet()
+                    _bonusWords.value = emptySet()
+                    _lastWordResult.value = null
 
                     _uiState.value = GameUiState.Playing(session)
                 } else {
@@ -124,15 +135,17 @@ class GameViewModel @Inject constructor(
     fun startSelection(row: Int, col: Int) {
         _selectedCells.value = listOf(row to col)
 
-        // Clear any previous message when starting a new selection
+        // Clear any previous message and score breakdown when starting a new selection
         val currentState = _uiState.value
         if (currentState is GameUiState.Playing && currentState.message != null) {
             _uiState.value = GameUiState.Playing(
                 session = currentState.session,
                 message = null,
-                isSuccess = null
+                isSuccess = null,
+                isBonus = false
             )
         }
+        _lastWordResult.value = null
     }
 
     fun updateSelection(endRow: Int, endCol: Int, gridSize: Int) {
@@ -174,13 +187,17 @@ class GameViewModel @Inject constructor(
                 // Calculate time elapsed
                 val timeElapsed = ((System.currentTimeMillis() - gameStartTime) / 1000).toInt()
 
+                // Map selected cells to CellDto path for the backend
+                val cellPath = selected.map { (row, col) -> CellDto(row, col) }
+
                 // Submit to backend
                 val result = gameRepository.submitWord(
                     sessionId = session.sessionId,
                     word = word,
                     isReversed = isReversed,
                     isDiagonal = isDiagonal,
-                    timeElapsed = timeElapsed
+                    timeElapsed = timeElapsed,
+                    path = cellPath
                 )
                 if (result.isSuccess) {
                     val response = result.getOrNull()!!
@@ -205,39 +222,67 @@ class GameViewModel @Inject constructor(
         if (currentState !is GameUiState.Playing) return
 
         if (response.correct) {
-            // Add to found words
-            _foundWords.value = _foundWords.value + word.lowercase()
-
             // Save the path for this word (for drawing lines)
             _foundWordPaths.value = _foundWordPaths.value + (word.lowercase() to path)
 
-            // Update session with new score and combo
-            val updatedSession = currentState.session.copy(
-                currentScore = response.score,
-                currentCombo = response.combo,
-                wordsFound = currentState.session.wordsFound + 1
+            // Emit the score breakdown result for UI feedback
+            _lastWordResult.value = LastWordResult(
+                word = word,
+                score = response.score,
+                isBonus = response.isBonus,
+                coinsEarned = response.coinsEarned,
+                scoreBreakdown = response.scoreBreakdown
             )
 
-            _uiState.value = GameUiState.Playing(
-                session = updatedSession,
-                message = response.message,
-                isSuccess = true
-            )
+            if (response.isBonus) {
+                // Bonus words are NOT target words — track them separately
+                _bonusWords.value = _bonusWords.value + word.lowercase()
 
-            // Check if level up
-            if (response.levelUp) {
-                _uiState.value = GameUiState.LevelUp(
-                    oldLevel = currentState.session.level,
-                    newLevel = response.newLevel ?: currentState.session.level,
-                    session = updatedSession
+                // Update session score/combo without incrementing wordsFound target counter
+                val updatedSession = currentState.session.copy(
+                    currentScore = response.score,
+                    currentCombo = response.combo
                 )
-            }
+                _uiState.value = GameUiState.Playing(
+                    session = updatedSession,
+                    message = response.message,
+                    isSuccess = true,
+                    isBonus = true
+                )
+            } else {
+                // Regular target word
+                _foundWords.value = _foundWords.value + word.lowercase()
 
-            // Check if all words found
-            if (updatedSession.wordsFound >= updatedSession.targetWordCount) {
-                endGame()
+                // Update session with new score and combo
+                val updatedSession = currentState.session.copy(
+                    currentScore = response.score,
+                    currentCombo = response.combo,
+                    wordsFound = currentState.session.wordsFound + 1
+                )
+
+                _uiState.value = GameUiState.Playing(
+                    session = updatedSession,
+                    message = response.message,
+                    isSuccess = true,
+                    isBonus = false
+                )
+
+                // Check if level up
+                if (response.levelUp) {
+                    _uiState.value = GameUiState.LevelUp(
+                        oldLevel = currentState.session.level,
+                        newLevel = response.newLevel ?: currentState.session.level,
+                        session = updatedSession
+                    )
+                }
+
+                // Check if all target words found
+                if (updatedSession.wordsFound >= updatedSession.targetWordCount) {
+                    endGame()
+                }
             }
         } else {
+            _lastWordResult.value = null
             _uiState.value = GameUiState.Playing(
                 session = currentState.session,
                 message = response.message,
@@ -299,12 +344,22 @@ class GameViewModel @Inject constructor(
     }
 }
 
+// Holds the breakdown of the last correctly-submitted word for transient UI display
+data class LastWordResult(
+    val word: String,
+    val score: Int,
+    val isBonus: Boolean,
+    val coinsEarned: Long,
+    val scoreBreakdown: Map<String, Int>
+)
+
 sealed class GameUiState {
     object Loading : GameUiState()
     data class Playing(
         val session: GameSession,
         val message: String? = null,
-        val isSuccess: Boolean? = null
+        val isSuccess: Boolean? = null,
+        val isBonus: Boolean = false
     ) : GameUiState()
     data class LevelUp(
         val oldLevel: Int,
