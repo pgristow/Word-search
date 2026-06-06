@@ -255,4 +255,21 @@ class GameBoardGeneratorTest {
             }
         }
     }
+
+    @Test
+    fun `getCasualConfig returns a fixed easy config independent of level`() {
+        val config = gameBoardGenerator.getCasualConfig()
+
+        assertEquals(8, config.gridSize)
+        assertEquals(
+            listOf(Direction.HORIZONTAL, Direction.VERTICAL),
+            config.allowedDirections
+        )
+        assertEquals(0f, config.reverseWordProbability)
+        assertEquals(3, config.minWordLength)
+        assertEquals(8, config.targetWordCount)
+        assertEquals("ETAOINSHRDLUCMFWYPVBGKJQXZ", config.distractorLetters)
+        // Identical on repeated calls (no level/state dependence).
+        assertEquals(config, gameBoardGenerator.getCasualConfig())
+    }
 }

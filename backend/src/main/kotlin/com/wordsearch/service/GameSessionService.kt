@@ -43,13 +43,22 @@ class GameSessionService(
         val category = categoryRepository.findById(categoryId)
             .orElseThrow { IllegalArgumentException("Category not found") }
 
-        // Generate game board
+        // Generate game board. Casual mode uses a fixed easy difficulty independent
+        // of the player's level; classic scales with level.
         val words = wordRepository.findByCategoryId(categoryId).map { it.word }
-        val gameBoard = gameBoardGenerator.generateBoard(
-            level = userProgress.currentLevel,
-            words = words,
-            categoryName = category.name
-        )
+        val gameBoard = if (gameMode == GameMode.CASUAL) {
+            gameBoardGenerator.generateBoard(
+                words = words,
+                categoryName = category.name,
+                config = gameBoardGenerator.getCasualConfig()
+            )
+        } else {
+            gameBoardGenerator.generateBoard(
+                level = userProgress.currentLevel,
+                words = words,
+                categoryName = category.name
+            )
+        }
 
         // Create new game session, persisting the board for server-side validation
         val session = GameSession(
@@ -284,6 +293,7 @@ class GameSessionService(
 
             val updatedProgress = userProgress.copy(
                 casualPuzzlesCompleted = userProgress.casualPuzzlesCompleted + 1,
+                casualBestScore = maxOf(userProgress.casualBestScore, session.totalScore.toLong()),
                 lastPlayedAt = LocalDateTime.now(),
                 updatedAt = LocalDateTime.now()
             )

@@ -20,8 +20,18 @@ class GameBoardGenerator(
         level: Int,
         words: List<String>,
         categoryName: String
+    ): GameBoard = generateBoard(words, categoryName, getDifficultyConfig(level), level)
+
+    /**
+     * Generates a board with an explicit difficulty config. Used by casual mode,
+     * which has a fixed, level-independent difficulty (see [getCasualConfig]).
+     */
+    fun generateBoard(
+        words: List<String>,
+        categoryName: String,
+        config: DifficultyConfig,
+        level: Int = 1
     ): GameBoard {
-        val config = getDifficultyConfig(level)
         val grid = Array(config.gridSize) { CharArray(config.gridSize) { ' ' } }
         val placedWords = mutableListOf<PlacedWord>()
 
@@ -127,6 +137,19 @@ class GameBoardGenerator(
             )
         }
     }
+
+    /**
+     * Fixed, easy difficulty for casual mode. Independent of the player's level so
+     * casual always offers a relaxed baseline (no reversals, no diagonals).
+     */
+    fun getCasualConfig(): DifficultyConfig = DifficultyConfig(
+        gridSize = 8,
+        allowedDirections = listOf(Direction.HORIZONTAL, Direction.VERTICAL),
+        reverseWordProbability = 0f,
+        minWordLength = 3,
+        targetWordCount = 8,
+        distractorLetters = "ETAOINSHRDLUCMFWYPVBGKJQXZ"
+    )
 
     /**
      * Finds valid placement for a word
