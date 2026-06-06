@@ -2,108 +2,37 @@
 
 This guide will help you deploy your Word Search backend to the cloud so your Android app can connect to it from anywhere.
 
-## Option 1: Railway.app (Recommended - Easiest & Free)
+## Option 1: Render (Recommended - Free)
 
-Railway offers a free tier perfect for development and testing.
+The repo ships a `render.yaml` Blueprint that provisions the Dockerized backend **and** a
+free Postgres in one step. (See the root `DEPLOYMENT.md` for the full write-up.)
 
-### Prerequisites
-- GitHub account
-- Railway account (sign up at https://railway.app)
+### Easiest: Blueprint
+1. Push your code to GitHub (already connected).
+2. In Render: **New → Blueprint**, select the `Word-search` repo.
+3. Render reads `render.yaml` and creates `wordsearch-db` (Postgres) + `wordsearch-backend`
+   (web service from `backend/Dockerfile`). Click **Apply**.
+4. DB env vars (`DB_HOST`/`DB_PORT`/`DB_NAME`/username/password), a generated `JWT_SECRET`,
+   and `SPRING_PROFILES_ACTIVE=production` are injected automatically. Flyway runs `V1..V6`
+   on first boot.
+5. Render gives you a URL like `https://wordsearch-backend.onrender.com`.
 
-### Step-by-Step Deployment
+### Manual (without the Blueprint)
+1. **New → Web Service**, connect the repo, Environment **Docker**, Plan **Free**.
+2. **New → PostgreSQL**, Plan **Free**.
+3. On the web service, set env vars:
+   ```
+   SPRING_PROFILES_ACTIVE=production
+   DB_HOST=<from the Postgres "Connections" panel>
+   DB_PORT=5432
+   DB_NAME=<database name>
+   SPRING_DATASOURCE_USERNAME=<user>
+   SPRING_DATASOURCE_PASSWORD=<password>
+   JWT_SECRET=<a long random secret>
+   ```
 
-#### 1. Push Your Code to GitHub
-```bash
-# If you haven't already pushed to GitHub, do it now
-cd backend
-git add .
-git commit -m "Prepare backend for deployment"
-git push origin your-branch-name
-```
-
-#### 2. Deploy to Railway
-
-1. Go to https://railway.app and sign in with GitHub
-2. Click "New Project"
-3. Select "Deploy from GitHub repo"
-4. Choose your `Word-search` repository
-5. Railway will auto-detect it's a Spring Boot app
-
-#### 3. Add PostgreSQL Database
-
-1. In your Railway project, click "New"
-2. Select "Database" → "Add PostgreSQL"
-3. Railway will automatically create a PostgreSQL database
-
-#### 4. Configure Environment Variables
-
-Click on your backend service, go to "Variables" tab, and add these:
-
-```
-SPRING_PROFILES_ACTIVE=production
-SPRING_DATASOURCE_URL=${{Postgres.DATABASE_URL}}
-SPRING_DATASOURCE_USERNAME=${{Postgres.PGUSER}}
-SPRING_DATASOURCE_PASSWORD=${{Postgres.PGPASSWORD}}
-JWT_SECRET=YourSuperSecretJWTKeyHereMakeItLongAndRandom123456789
-PORT=8080
-```
-
-**Important:** Railway automatically provides `Postgres.DATABASE_URL`, `Postgres.PGUSER`, and `Postgres.PGPASSWORD` when you add PostgreSQL.
-
-#### 5. Deploy!
-
-Railway will automatically build and deploy your app. Watch the deployment logs.
-
-#### 6. Get Your Backend URL
-
-Once deployed, Railway will give you a URL like: `https://your-app-name.up.railway.app`
-
-Copy this URL - you'll need it for the Android app!
-
----
-
-## Option 2: Render.com (Also Free & Easy)
-
-### Step-by-Step Deployment
-
-#### 1. Sign up at https://render.com
-
-#### 2. Create a New Web Service
-
-1. Click "New +" → "Web Service"
-2. Connect your GitHub repository
-3. Select the `backend` directory
-4. Fill in:
-   - **Name:** word-search-backend
-   - **Environment:** Docker
-   - **Plan:** Free
-
-#### 3. Add PostgreSQL Database
-
-1. Click "New +" → "PostgreSQL"
-2. Name it `word-search-db`
-3. Plan: Free
-4. Click "Create Database"
-
-#### 4. Configure Environment Variables
-
-In your Web Service settings, add these environment variables:
-
-```
-SPRING_PROFILES_ACTIVE=production
-SPRING_DATASOURCE_URL=<copy internal database URL from PostgreSQL>
-SPRING_DATASOURCE_USERNAME=<from PostgreSQL settings>
-SPRING_DATASOURCE_PASSWORD=<from PostgreSQL settings>
-JWT_SECRET=YourSuperSecretJWTKeyHereMakeItLongAndRandom123456789
-```
-
-#### 5. Deploy!
-
-Render will build using the Dockerfile and deploy. First deploy takes ~5-10 minutes.
-
-#### 6. Get Your Backend URL
-
-Your URL will be: `https://word-search-backend.onrender.com`
+> Render's free Postgres is deleted ~30 days after creation; for a permanent free DB use
+> Neon (neon.tech) and point the same `DB_*` vars at it.
 
 ---
 
@@ -151,7 +80,7 @@ buildConfigField("String", "BASE_URL", "\"http://172.23.59.85:8080/\"")
 
 Replace with your deployed URL:
 ```kotlin
-buildConfigField("String", "BASE_URL", "\"https://your-app-name.up.railway.app/\"")
+buildConfigField("String", "BASE_URL", "\"https://wordsearch-backend.onrender.com/\"")
 ```
 
 ### Rebuild the Android App
@@ -196,7 +125,7 @@ curl -X POST https://your-app-url.com/api/auth/register \
 **1. Database Connection Errors**
 - Check that `SPRING_DATASOURCE_URL` is set correctly
 - Verify PostgreSQL is running
-- Check logs: Railway/Render dashboard → Logs
+- Check logs: Render dashboard → Logs
 
 **2. JWT Secret Error**
 - Make sure `JWT_SECRET` environment variable is set
@@ -214,8 +143,6 @@ curl -X POST https://your-app-url.com/api/auth/register \
 
 ### View Logs
 
-**Railway:** Click on your service → "Deployments" → Select deployment → View logs
-
 **Render:** Dashboard → Your service → "Logs" tab
 
 **Fly.io:** `fly logs`
@@ -223,11 +150,6 @@ curl -X POST https://your-app-url.com/api/auth/register \
 ---
 
 ## Cost & Limits
-
-### Railway Free Tier
-- $5 credit per month
-- Enough for 500 hours of running time
-- Perfect for development/testing
 
 ### Render Free Tier
 - 750 hours per month
@@ -248,7 +170,7 @@ Before going to production:
 - [ ] Change `JWT_SECRET` to a strong, random value
 - [ ] Set up proper database backups
 - [ ] Configure CORS for your domain
-- [ ] Enable HTTPS (automatic on Railway/Render/Fly)
+- [ ] Enable HTTPS (automatic on Render/Fly)
 - [ ] Set up monitoring/alerts
 - [ ] Review logs configuration
 - [ ] Test all API endpoints
@@ -258,7 +180,6 @@ Before going to production:
 
 ## Need Help?
 
-- Railway Docs: https://docs.railway.app
 - Render Docs: https://render.com/docs
 - Fly.io Docs: https://fly.io/docs
 - Spring Boot Docs: https://spring.io/guides

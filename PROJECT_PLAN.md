@@ -38,7 +38,7 @@ A modern Android word search game with **endless gameplay**, progressive difficu
 ### DevOps & Tools
 - **Version Control**: Git + GitHub
 - **CI/CD**: GitHub Actions
-- **Backend Deployment**: Docker + Kubernetes or Railway/Render
+- **Backend Deployment**: Docker + Kubernetes or Render
 - **Monitoring**: Sentry (error tracking), Prometheus + Grafana
 - **Testing**: JUnit5, Mockk (Android), Jest/Mocha (Node) or JUnit (Spring)
 
@@ -1512,7 +1512,7 @@ Puzzle Completed → Ad 1/5 → Puzzle Selection → Puzzle → Ad 2/5 → ...
 
 ### Questions to Resolve
 - [ ] Preferred backend framework (Spring Boot vs Node.js)?
-- [ ] Deployment platform preference (AWS, GCP, Railway, Render)?
+- [ ] Deployment platform preference (AWS, GCP, Render)?
 - [ ] Monorepo vs separate repositories?
 - [ ] Analytics platform (Firebase, Mixpanel, Amplitude)?
 - [ ] Error tracking service preference?

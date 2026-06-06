@@ -4,7 +4,7 @@ FROM gradle:8.5-jdk17 AS builder
 # Set working directory
 WORKDIR /app
 
-# Copy gradle files (from backend/ directory since Railway runs from repo root)
+# Copy gradle files (paths are relative to the repo root build context)
 COPY backend/build.gradle.kts backend/settings.gradle.kts backend/gradle.properties ./
 COPY backend/gradle ./gradle
 

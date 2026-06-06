@@ -4,8 +4,8 @@ spring:
 
   # Database Configuration
   datasource:
-    # Use a full SPRING_DATASOURCE_URL if provided (e.g. Railway); otherwise build the
-    # JDBC URL from individual DB_HOST/DB_PORT/DB_NAME parts (e.g. Render Blueprint).
+    # Use a full SPRING_DATASOURCE_URL if provided; otherwise build the JDBC URL from
+    # individual DB_HOST/DB_PORT/DB_NAME parts (e.g. the Render Blueprint).
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:wordsearch}}
     username: ${SPRING_DATASOURCE_USERNAME:wordsearch_user}
     password: ${SPRING_DATASOURCE_PASSWORD}

@@ -130,29 +130,11 @@ The `docker-compose.yml` includes:
 
 ## Production Deployment
 
-### Option 1: Cloud Platform (Railway, Render, Heroku)
+### Option 1: Render (recommended)
 
-#### Railway
-```bash
-# Install Railway CLI
-npm install -g @railway/cli
-
-# Login
-railway login
-
-# Create new project
-railway init
-
-# Deploy
-railway up
-```
-
-#### Render
-1. Connect your GitHub repository
-2. Create a new **Web Service**
-3. Set build command: `./gradlew build`
-4. Set start command: `java -jar build/libs/*.jar`
-5. Add environment variables from `.env.example`
+The repo ships a `render.yaml` Blueprint (app + free Postgres). See
+[Free hosting on Render](#free-hosting-on-render-online-leaderboards) below for the full
+steps — in short: **New → Blueprint** in Render, point at this repo, **Apply**.
 
 ### Option 2: AWS Deployment
 
@@ -287,7 +269,7 @@ database's **Data** tab.
 ### 2. Point the Android app at it
 After the service is live, Render gives it a URL like
 `https://wordsearch-backend.onrender.com`. Set that as `BASE_URL` in
-`android/app/build.gradle.kts` (replacing the old Railway URL), rebuild the app.
+`android/app/build.gradle.kts` (replacing the old `BASE_URL`), rebuild the app.
 
 ### Free-tier caveats (important)
 - **Web service sleeps after ~15 min idle** → the first request after a lull is a slow
@@ -301,8 +283,7 @@ After the service is live, Render gives it a URL like
 ### Alternative: any host that runs Docker + Postgres
 The app only needs `SPRING_PROFILES_ACTIVE=production` plus either a full
 `SPRING_DATASOURCE_URL` **or** the `DB_HOST`/`DB_PORT`/`DB_NAME` parts (+ username/password),
-and it binds to `$PORT` if the host sets one. This works on Railway, Fly.io, Koyeb, a plain
-VM, etc.
+and it binds to `$PORT` if the host sets one. This works on Fly.io, Koyeb, a plain VM, etc.
 
 ## Monitoring & Health Checks
 

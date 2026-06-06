@@ -23,7 +23,7 @@ android {
         }
 
         // Backend API configuration
-        buildConfigField("String", "BASE_URL", "\"https://word-search-production.up.railway.app/\"")
+        buildConfigField("String", "BASE_URL", "\"https://wordsearch-backend.onrender.com/\"")
         buildConfigField("String", "API_VERSION", "\"v1\"")
     }
 
@@ -35,7 +35,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("String", "BASE_URL", "\"https://word-search-production.up.railway.app/\"")
+            buildConfigField("String", "BASE_URL", "\"https://wordsearch-backend.onrender.com/\"")
         }
         debug {
             isDebuggable = true

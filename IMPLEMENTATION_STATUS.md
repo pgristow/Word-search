@@ -244,7 +244,7 @@ Level 41+:   20×20, All 8 directions, 80% reversed, 15 words
 - ✅ **Deployment guide** (DEPLOYMENT.md) covering:
   - Local development setup
   - Docker deployment
-  - Cloud platform deployment (Railway, Render, AWS)
+  - Cloud platform deployment (Render, AWS)
   - Kubernetes deployment
   - Database migrations
   - Monitoring & health checks
@@ -694,7 +694,7 @@ What's Ready:
 
 Ready to Deploy:
 1. **Local deployment** - Run with docker-compose up
-2. **Cloud deployment** - Deploy to Railway, Render, AWS, or Kubernetes
+2. **Cloud deployment** - Deploy to Render, AWS, or Kubernetes
 3. **Monitoring** - Health checks, metrics, and Prometheus integration
 4. **Scalability** - Optimized connection pooling and batch processing
 
