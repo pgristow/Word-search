@@ -104,7 +104,7 @@ class GameBoardGenerator(
                 distractorLetters = "ETAOINSHRDLUCMFWYPVBGKJQXZ"
             )
             level in 16..20 -> DifficultyConfig(
-                gridSize = 8,
+                gridSize = 9,
                 allowedDirections = Direction.values().toList(),
                 reverseWordProbability = 0.5f,
                 minWordLength = 4,
@@ -112,7 +112,7 @@ class GameBoardGenerator(
                 distractorLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             )
             level in 21..30 -> DifficultyConfig(
-                gridSize = 8,
+                gridSize = 9,
                 allowedDirections = Direction.values().toList(),
                 reverseWordProbability = 0.6f,
                 minWordLength = 4,
@@ -120,7 +120,7 @@ class GameBoardGenerator(
                 distractorLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             )
             level in 31..40 -> DifficultyConfig(
-                gridSize = 8,
+                gridSize = 9,
                 allowedDirections = Direction.values().toList(),
                 reverseWordProbability = 0.7f,
                 minWordLength = 5,
@@ -128,7 +128,7 @@ class GameBoardGenerator(
                 distractorLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             )
             else -> DifficultyConfig(
-                gridSize = 8,
+                gridSize = 9,
                 allowedDirections = Direction.values().toList(),
                 reverseWordProbability = 0.8f,
                 minWordLength = 5,

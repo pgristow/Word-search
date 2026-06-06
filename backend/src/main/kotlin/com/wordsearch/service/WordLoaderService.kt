@@ -23,12 +23,9 @@ class WordLoaderService(
     @PostConstruct
     @Transactional
     fun loadWordsFromCSV() {
-        // Only load if database is empty
-        if (wordRepository.count() > 0) {
-            logger.info("Words already loaded in database")
-            return
-        }
-
+        // Idempotent: on every boot, ensure each category contains every word from its
+        // CSV, inserting only the missing ones. This lets us ship new/harder words and
+        // have them sync to an existing database on the next deploy (no wipe needed).
         val categories = categoryRepository.findAll()
         val categoryFiles = mapOf(
             "Animals" to "classpath:data/animals.csv",
@@ -40,29 +37,35 @@ class WordLoaderService(
         )
 
         categories.forEach { category ->
-            val filePath = categoryFiles[category.name]
-            if (filePath != null) {
-                try {
-                    val resource = resourceLoader.getResource(filePath)
-                    val reader = CSVReader(InputStreamReader(resource.inputStream))
+            val filePath = categoryFiles[category.name] ?: return@forEach
+            try {
+                val existing = wordRepository.findByCategoryId(category.id)
+                    .map { it.word.uppercase() }
+                    .toHashSet()
 
-                    val words = reader.readAll()
+                val resource = resourceLoader.getResource(filePath)
+                val parsed = CSVReader(InputStreamReader(resource.inputStream)).use { reader ->
+                    reader.readAll()
                         .drop(1) // Skip header
                         .mapNotNull { row ->
-                            if (row.size >= 2) {
+                            val w = row.getOrNull(0)?.trim()?.uppercase()
+                            if (!w.isNullOrEmpty() && row.size >= 2) {
                                 Word(
                                     categoryId = category.id,
-                                    word = row[0].trim().uppercase(),
+                                    word = w,
                                     difficultyLevel = row[1].trim().toIntOrNull() ?: 1
                                 )
                             } else null
                         }
-
-                    wordRepository.saveAll(words)
-                    logger.info("Loaded ${words.size} words for category: ${category.name}")
-                } catch (e: Exception) {
-                    logger.error("Error loading words for category ${category.name}: ${e.message}")
                 }
+
+                val toAdd = parsed.filter { it.word !in existing }
+                if (toAdd.isNotEmpty()) {
+                    wordRepository.saveAll(toAdd)
+                    logger.info("Added ${toAdd.size} new words for category: ${category.name}")
+                }
+            } catch (e: Exception) {
+                logger.error("Error loading words for category ${category.name}: ${e.message}")
             }
         }
     }

@@ -47,21 +47,21 @@ class GameSessionService(
             .orElseThrow { IllegalArgumentException("Category not found") }
 
         // Generate game board. Casual mode uses a fixed easy difficulty independent
-        // of the player's level; classic scales with level.
-        val words = wordRepository.findByCategoryId(categoryId).map { it.word }
-        val gameBoard = if (gameMode == GameMode.CASUAL) {
-            gameBoardGenerator.generateBoard(
-                words = words,
-                categoryName = category.name,
-                config = gameBoardGenerator.getCasualConfig()
-            )
+        // of the player's level; classic scales with level. Words are picked to match
+        // the difficulty band and to fit the grid, so harder levels show harder words.
+        val config = if (gameMode == GameMode.CASUAL) {
+            gameBoardGenerator.getCasualConfig()
         } else {
-            gameBoardGenerator.generateBoard(
-                level = userProgress.currentLevel,
-                words = words,
-                categoryName = category.name
-            )
+            gameBoardGenerator.getDifficultyConfig(userProgress.currentLevel)
         }
+        val band = if (gameMode == GameMode.CASUAL) 1..2 else difficultyBandForLevel(userProgress.currentLevel)
+        val words = selectWordsForBoard(categoryId, config.gridSize, band)
+        val gameBoard = gameBoardGenerator.generateBoard(
+            words = words,
+            categoryName = category.name,
+            config = config,
+            level = userProgress.currentLevel
+        )
 
         // Create new game session, persisting the board for server-side validation
         val session = GameSession(
@@ -462,6 +462,30 @@ class GameSessionService(
         return getActiveSession(userId)
     }
 
+    /** Difficulty (1-5) band of words to draw for a given player level. */
+    private fun difficultyBandForLevel(level: Int): IntRange = when {
+        level <= 5 -> 1..2
+        level <= 10 -> 1..3
+        level <= 15 -> 2..4
+        level <= 25 -> 3..5
+        else -> 4..5
+    }
+
+    /**
+     * Pick the category's words that match the difficulty [band] and fit the grid,
+     * shuffled. Widens the band if a category doesn't have enough words in range so a
+     * board is always produced.
+     */
+    private fun selectWordsForBoard(categoryId: UUID, gridSize: Int, band: IntRange): List<String> {
+        val all = wordRepository.findByCategoryId(categoryId)
+        if (all.isEmpty()) return emptyList()
+        val fits = all.filter { it.word.length in 3..gridSize }
+        val candidates = if (fits.isNotEmpty()) fits else all
+        var pool = candidates.filter { it.difficultyLevel in band }
+        if (pool.size < 8) pool = candidates.filter { it.difficultyLevel <= band.last }
+        if (pool.size < 8) pool = candidates
+        return pool.shuffled().map { it.word }
+    }
 }
 
 // DTOs specific to service
