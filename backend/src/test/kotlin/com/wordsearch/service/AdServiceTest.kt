@@ -305,7 +305,7 @@ class AdServiceTest {
 
     @Test
     fun `test getAdStatistics returns correct stats`() {
-        val adViews = listOf(
+        val adViews = listOf<com.wordsearch.model.AdView>(
             mockk(relaxed = true),
             mockk(relaxed = true),
             mockk(relaxed = true)

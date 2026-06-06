@@ -188,7 +188,6 @@ class GameBoardGeneratorTest {
         val category = Category(
             id = categoryId,
             name = "Animals",
-            unlockLevel = 1
         )
         val words = listOf(
             Word(id = UUID.randomUUID(), word = "CAT", categoryId = categoryId),
@@ -230,7 +229,6 @@ class GameBoardGeneratorTest {
         val category = Category(
             id = categoryId,
             name = "Empty",
-            unlockLevel = 1
         )
 
         every { categoryRepository.findById(categoryId) } returns Optional.of(category)

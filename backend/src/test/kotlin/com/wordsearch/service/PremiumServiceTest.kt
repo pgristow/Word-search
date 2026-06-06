@@ -36,7 +36,7 @@ class PremiumServiceTest {
             id = testUserId,
             username = "testuser",
             email = "test@example.com",
-            password = "hashedpassword",
+            passwordHash = "hashedpassword",
             isPremium = false
         )
 
@@ -69,7 +69,7 @@ class PremiumServiceTest {
             id = testUserId,
             username = "testuser",
             email = "test@example.com",
-            password = "hashedpassword",
+            passwordHash = "hashedpassword",
             isPremium = false
         )
 
@@ -239,7 +239,7 @@ class PremiumServiceTest {
             id = testUserId,
             username = "newuser",
             email = "new@example.com",
-            password = "hashedpassword",
+            passwordHash = "hashedpassword",
             isPremium = false
         )
 
