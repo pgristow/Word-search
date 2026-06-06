@@ -24,4 +24,14 @@ class DictionaryServiceTest {
         val empty = DictionaryService(resourcePath = "/data/does_not_exist.txt", minLength = 3)
         assertFalse(empty.isWord("cat"))
     }
+
+    @Test fun `bundled production dictionary loads and recognizes common words`() {
+        // Guards against the real resource being missing/misnamed, which would
+        // silently disable bonus-word recognition in production.
+        val prod = DictionaryService(resourcePath = "/data/words_en.txt", minLength = 3)
+        assertTrue(prod.isWord("house"))
+        assertTrue(prod.isWord("GIRAFFE"))
+        assertTrue(prod.isWord("bonus"))
+        assertFalse(prod.isWord("zzzqx"))
+    }
 }
