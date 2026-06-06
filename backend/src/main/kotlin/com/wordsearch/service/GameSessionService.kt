@@ -24,6 +24,7 @@ class GameSessionService(
     private val wordClassifier: WordClassifier,
     private val economyService: EconomyService,
     private val leaderboardService: LeaderboardService,
+    private val leagueService: LeagueService,
     private val userRepository: UserRepository,
     private val objectMapper: com.fasterxml.jackson.databind.ObjectMapper
 ) {
@@ -235,7 +236,9 @@ class GameSessionService(
         }
         userProgressRepository.save(updatedProgress)
 
-        // Project the user's lifetime classic score onto the global leaderboard.
+        // Project the user's lifetime classic score onto the global leaderboard, and
+        // record the points on their current-week league standing so the league screen
+        // reflects this round.
         if (affectsProgression) {
             userRepository.findById(userId).orElse(null)?.let { user ->
                 leaderboardService.upsert(
@@ -246,6 +249,7 @@ class GameSessionService(
                     score = updatedProgress.totalScore
                 )
             }
+            leagueService.recordWeeklyScore(userId, score.toLong())
         }
 
         // Bonus words award coins; classic targets do not. coinBalance always

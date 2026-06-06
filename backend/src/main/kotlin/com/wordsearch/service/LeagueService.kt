@@ -77,6 +77,18 @@ class LeagueService(
     }
 
     /**
+     * Records points earned during play onto the player's current-week league standing,
+     * joining a cohort if they don't have one yet. Called whenever a competitive (classic)
+     * word is scored so the league screen reflects the round.
+     */
+    @Transactional
+    fun recordWeeklyScore(userId: UUID, delta: Long) {
+        if (delta <= 0) return
+        val membership = joinOrGetCurrentCohort(userId, today = LocalDate.now(clock))
+        addWeeklyScore(userId, membership.cohortId, delta)
+    }
+
+    /**
      * Processes every OPEN cohort whose week has passed: ranks members, assigns
      * final_rank + result (PROMOTED / RELEGATED / STAYED), pays promotion rewards,
      * seeds next-week memberships in the adjusted tier, resets weekly scores, and

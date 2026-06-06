@@ -42,7 +42,10 @@ class GameBoardGenerator(
             val shouldReverse = Random.nextFloat() < config.reverseWordProbability
             val wordToPlace = if (shouldReverse) word.reversed() else word
 
-            val placement = findPlacement(grid, wordToPlace, config)
+            // After the first word, prefer placements that cross an already-placed word
+            // at a shared letter (crossword-style). This packs the board and forces
+            // variety of directions instead of everything running the same way.
+            val placement = findInterlockingPlacement(grid, wordToPlace, config, preferIntersection = placedWords.isNotEmpty())
             if (placement != null) {
                 placeWord(grid, wordToPlace, placement)
                 placedWords.add(
@@ -76,7 +79,7 @@ class GameBoardGenerator(
     fun getDifficultyConfig(level: Int): DifficultyConfig {
         return when {
             level in 1..5 -> DifficultyConfig(
-                gridSize = 7,
+                gridSize = 8,
                 allowedDirections = listOf(Direction.HORIZONTAL, Direction.VERTICAL),
                 reverseWordProbability = 0f,
                 minWordLength = 3,
@@ -84,7 +87,7 @@ class GameBoardGenerator(
                 distractorLetters = "ETAOINSHRDLU"
             )
             level in 6..10 -> DifficultyConfig(
-                gridSize = 8,
+                gridSize = 9,
                 allowedDirections = listOf(
                     Direction.HORIZONTAL,
                     Direction.VERTICAL,
@@ -96,7 +99,7 @@ class GameBoardGenerator(
                 distractorLetters = "ETAOINSHRDLUCMFWYPVBGKJQXZ"
             )
             level in 11..15 -> DifficultyConfig(
-                gridSize = 8,
+                gridSize = 9,
                 allowedDirections = Direction.values().toList(),
                 reverseWordProbability = 0.3f,
                 minWordLength = 4,
@@ -104,7 +107,7 @@ class GameBoardGenerator(
                 distractorLetters = "ETAOINSHRDLUCMFWYPVBGKJQXZ"
             )
             level in 16..20 -> DifficultyConfig(
-                gridSize = 9,
+                gridSize = 10,
                 allowedDirections = Direction.values().toList(),
                 reverseWordProbability = 0.5f,
                 minWordLength = 4,
@@ -112,7 +115,7 @@ class GameBoardGenerator(
                 distractorLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             )
             level in 21..30 -> DifficultyConfig(
-                gridSize = 9,
+                gridSize = 10,
                 allowedDirections = Direction.values().toList(),
                 reverseWordProbability = 0.6f,
                 minWordLength = 4,
@@ -120,7 +123,7 @@ class GameBoardGenerator(
                 distractorLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             )
             level in 31..40 -> DifficultyConfig(
-                gridSize = 9,
+                gridSize = 10,
                 allowedDirections = Direction.values().toList(),
                 reverseWordProbability = 0.7f,
                 minWordLength = 5,
@@ -128,7 +131,7 @@ class GameBoardGenerator(
                 distractorLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             )
             else -> DifficultyConfig(
-                gridSize = 9,
+                gridSize = 10,
                 allowedDirections = Direction.values().toList(),
                 reverseWordProbability = 0.8f,
                 minWordLength = 5,
@@ -172,6 +175,58 @@ class GameBoardGenerator(
         }
 
         return null
+    }
+
+    /**
+     * Enumerates every legal placement and picks one, preferring placements that cross an
+     * already-placed word at a shared letter when [preferIntersection] is set. Produces an
+     * interlocking, crossword-like board with mixed directions.
+     */
+    private fun findInterlockingPlacement(
+        grid: Array<CharArray>,
+        word: String,
+        config: DifficultyConfig,
+        preferIntersection: Boolean
+    ): Placement? {
+        val candidates = ArrayList<Pair<Placement, Int>>() // placement + number of shared (crossing) letters
+        for (row in grid.indices) {
+            for (col in grid[row].indices) {
+                for (direction in config.allowedDirections) {
+                    val overlap = overlapCount(grid, word, row, col, direction)
+                    if (overlap >= 0) candidates.add(Placement(row, col, direction) to overlap)
+                }
+            }
+        }
+        if (candidates.isEmpty()) return null
+        if (preferIntersection) {
+            val crossing = candidates.filter { it.second > 0 }
+            if (crossing.isNotEmpty()) return crossing.random().first
+        }
+        return candidates.random().first
+    }
+
+    /**
+     * Number of cells of this placement that already hold the matching letter (i.e. real
+     * intersections), or -1 if the word cannot be placed here at all.
+     */
+    private fun overlapCount(
+        grid: Array<CharArray>,
+        word: String,
+        row: Int,
+        col: Int,
+        direction: Direction
+    ): Int {
+        val (dr, dc) = direction.deltas
+        var overlap = 0
+        for (i in word.indices) {
+            val r = row + dr * i
+            val c = col + dc * i
+            if (r !in grid.indices || c !in grid[r].indices) return -1
+            val cell = grid[r][c]
+            if (cell != ' ' && cell != word[i]) return -1
+            if (cell == word[i]) overlap++
+        }
+        return overlap
     }
 
     /**
