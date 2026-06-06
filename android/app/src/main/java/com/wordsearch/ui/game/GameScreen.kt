@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -53,7 +54,17 @@ fun GameScreen(
     viewModel: GameViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val hintMessage by viewModel.hintMessage.collectAsState()
     val isCasualMode = gameMode == "CASUAL"
+
+    // Show hint messages via snackbar
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(hintMessage) {
+        hintMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearHintMessage()
+        }
+    }
 
     // Auto-save on back button for casual mode
     BackHandler {
@@ -84,6 +95,16 @@ fun GameScreen(
                     }
                 },
                 actions = {
+                    // Hint button — visible while playing
+                    if (uiState is GameUiState.Playing) {
+                        val coinBalance by viewModel.coinBalance.collectAsState()
+                        IconButton(onClick = { viewModel.useHint() }) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "Use hint ($coinBalance ⊙)"
+                            )
+                        }
+                    }
                     if (!isCasualMode) {
                         IconButton(onClick = { viewModel.endGame() }) {
                             Icon(Icons.Default.Close, contentDescription = "End game")
@@ -91,7 +112,8 @@ fun GameScreen(
                     }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -191,6 +213,7 @@ fun GamePlayingContent(
     val bonusWords by viewModel.bonusWords.collectAsState()
     val foundWordPaths by viewModel.foundWordPaths.collectAsState()
     val lastWordResult by viewModel.lastWordResult.collectAsState()
+    val hintedCells by viewModel.hintedCells.collectAsState()
     val isCasualMode = gameMode == "CASUAL"
 
     Column(
@@ -278,6 +301,7 @@ fun GamePlayingContent(
             grid = session.grid,
             selectedCells = selectedCells,
             foundWordPaths = foundWordPaths,
+            hintedCells = hintedCells,
             onSelectionStart = { row, col -> viewModel.startSelection(row, col) },
             onSelectionUpdate = { row, col -> viewModel.updateSelection(row, col, session.gridSize) },
             onSelectionComplete = { viewModel.submitWord() },
@@ -495,11 +519,15 @@ fun StatChip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: Strin
     }
 }
 
+// Distinct colour for hinted-word highlight (purple-ish)
+private val HintHighlight = Color(0xFF9C27B0)
+
 @Composable
 fun WordGrid(
     grid: List<List<Char>>,
     selectedCells: List<Pair<Int, Int>>,
     foundWordPaths: List<Pair<String, List<Pair<Int, Int>>>>,
+    hintedCells: List<Pair<Int, Int>> = emptyList(),
     onSelectionStart: (Int, Int) -> Unit,
     onSelectionUpdate: (Int, Int) -> Unit,
     onSelectionComplete: () -> Unit,
@@ -647,6 +675,20 @@ fun WordGrid(
                             end = Offset(endX, endY),
                             strokeWidth = cellSize * 0.8f,
                             cap = androidx.compose.ui.graphics.StrokeCap.Round
+                        )
+                    }
+                }
+
+                // Draw hinted cells (pulsing purple highlight over each cell)
+                if (hintedCells.isNotEmpty()) {
+                    val hintColor = HintHighlight.copy(alpha = 0.45f)
+                    hintedCells.forEach { (row, col) ->
+                        val centerX = (col + 0.5f) * cellSize
+                        val centerY = (row + 0.5f) * cellSize
+                        drawCircle(
+                            color = hintColor,
+                            radius = cellSize * 0.42f,
+                            center = Offset(centerX, centerY)
                         )
                     }
                 }

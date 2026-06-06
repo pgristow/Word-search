@@ -15,6 +15,7 @@ import com.wordsearch.ui.achievements.AchievementsScreen
 import com.wordsearch.ui.leaderboard.LeaderboardScreen
 import com.wordsearch.ui.challenge.DailyChallengeScreen
 import com.wordsearch.ui.league.LeagueScreen
+import com.wordsearch.ui.store.StoreScreen
 
 sealed class Screen(val route: String) {
     object Login : Screen("login")
@@ -31,6 +32,7 @@ sealed class Screen(val route: String) {
     object League : Screen("league")
     object DailyChallenge : Screen("daily_challenge")
     object Premium : Screen("premium")
+    object Store : Screen("store")
 }
 
 @Composable
@@ -81,6 +83,9 @@ fun NavGraph(
                 },
                 onNavigateToDailyChallenge = {
                     navController.navigate(Screen.DailyChallenge.route)
+                },
+                onNavigateToStore = {
+                    navController.navigate(Screen.Store.route)
                 },
                 onLogout = {
                     navController.navigate(Screen.Login.route) {
@@ -161,6 +166,14 @@ fun NavGraph(
 
         composable(Screen.League.route) {
             LeagueScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(Screen.Store.route) {
+            StoreScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 }

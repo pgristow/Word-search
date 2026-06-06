@@ -250,4 +250,31 @@ class GameRepository @Inject constructor(
             Result.failure(e)
         }
     }
+
+    // Hints
+    suspend fun useHint(sessionId: String): Result<com.wordsearch.data.model.HintResponse> = withContext(Dispatchers.IO) {
+        try {
+            val response = gameApi.useHint(sessionId)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                // Surface error message from backend (e.g. 400 not enough coins)
+                val errorBody = response.errorBody()?.string()
+                val message = if (!errorBody.isNullOrBlank()) {
+                    try {
+                        val json = org.json.JSONObject(errorBody)
+                        json.optString("message", "Failed to use hint")
+                    } catch (_: Exception) {
+                        "Failed to use hint"
+                    }
+                } else {
+                    "Failed to use hint"
+                }
+                Result.failure(Exception(message))
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error using hint")
+            Result.failure(e)
+        }
+    }
 }
