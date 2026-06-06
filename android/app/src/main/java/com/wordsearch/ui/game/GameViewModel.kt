@@ -86,62 +86,34 @@ class GameViewModel @Inject constructor(
         }
     }
 
-    // Vector-based selection: select from start position to end position
+    // Vector-based selection: select from start position to end position.
+    // Snaps the drag to one of the 8 directions in GRID coordinates (row increases
+    // downward), so all directions work — not just left-to-right.
     fun selectFromStartToEnd(startRow: Int, startCol: Int, endRow: Int, endCol: Int, gridSize: Int) {
-        // If start and end are the same, select single cell
         if (startRow == endRow && startCol == endCol) {
             _selectedCells.value = listOf(startRow to startCol)
             return
         }
 
-        // Calculate angle between start and end
-        val dy = endRow - startRow
-        val dx = endCol - startCol
-        val angleRadians = kotlin.math.atan2(dy.toDouble(), dx.toDouble())
-        val angleDegrees = Math.toDegrees(angleRadians)
+        val dRow = endRow - startRow
+        val dCol = endCol - startCol
+        val aRow = abs(dRow)
+        val aCol = abs(dCol)
 
-        // Round to nearest 45 degrees (0, 45, 90, 135, 180, -135, -90, -45)
-        val roundedAngle = (kotlin.math.round(angleDegrees / 45.0) * 45.0).toInt()
-
-        // Convert angle to direction vector
-        val (dirRow, dirCol) = when (roundedAngle) {
-            0, -180, 180 -> 0 to 1      // Right
-            45 -> -1 to 1               // Up-right
-            90 -> -1 to 0               // Up
-            135, -135 -> -1 to -1       // Up-left
-            -45 -> 1 to 1               // Down-right
-            -90 -> 1 to 0               // Down
-            -180 -> 0 to -1             // Left
-            else -> 0 to 1              // Default to right
+        // Pick horizontal, vertical, or diagonal based on which axis dominates.
+        val stepRow: Int
+        val stepCol: Int
+        val steps: Int
+        when {
+            aCol > aRow * 2 -> { stepRow = 0; stepCol = dCol.coerceIn(-1, 1); steps = aCol }            // horizontal
+            aRow > aCol * 2 -> { stepRow = dRow.coerceIn(-1, 1); stepCol = 0; steps = aRow }            // vertical
+            else -> { stepRow = dRow.coerceIn(-1, 1); stepCol = dCol.coerceIn(-1, 1); steps = maxOf(aRow, aCol) } // diagonal
         }
 
-        // Build path from start to end following the direction
-        val path = mutableListOf<Pair<Int, Int>>()
-        var currentRow = startRow
-        var currentCol = startCol
-
-        // Add cells until we go out of bounds or reach a reasonable limit
-        while (currentRow in 0 until gridSize && currentCol in 0 until gridSize && path.size < gridSize * 2) {
-            path.add(currentRow to currentCol)
-
-            // Check if we've gone past the end position
-            if (dirRow != 0) {
-                if ((dirRow > 0 && currentRow > endRow) || (dirRow < 0 && currentRow < endRow)) {
-                    break
-                }
-            }
-            if (dirCol != 0) {
-                if ((dirCol > 0 && currentCol > endCol) || (dirCol < 0 && currentCol < endCol)) {
-                    break
-                }
-            }
-
-            // Move to next cell
-            currentRow += dirRow
-            currentCol += dirCol
-        }
-
-        _selectedCells.value = path
+        _selectedCells.value = (0..steps)
+            .map { i -> (startRow + stepRow * i) to (startCol + stepCol * i) }
+            .filter { (r, c) -> r in 0 until gridSize && c in 0 until gridSize }
+        return
     }
 
     fun startSelection(row: Int, col: Int) {

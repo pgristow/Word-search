@@ -43,9 +43,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.wordsearch.data.model.GameSession
 import com.wordsearch.ui.theme.WordFound
 import com.wordsearch.ui.theme.WordSelected
-import com.wordsearch.ui.theme.BoardTrough
-import com.wordsearch.ui.theme.GridTile
-import com.wordsearch.ui.theme.Ink
 import com.wordsearch.ui.theme.SelectBlue
 import com.wordsearch.ui.theme.FoundWordPalette
 import androidx.compose.ui.draw.drawBehind
@@ -584,131 +581,58 @@ fun WordGrid(
         Box(modifier = Modifier
             .fillMaxSize()
             .clip(RoundedCornerShape(20.dp))
-            .background(BoardTrough)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            // Letter tiles fill the board uniformly via weights, so the visible tile
-            // lines up exactly with the touch + highlight grid.
-            Column(modifier = Modifier.fillMaxSize()) {
-                grid.forEach { row ->
-                    Row(modifier = Modifier.fillMaxWidth().weight(1f)) {
-                        row.forEach { char ->
-                            GridCell(char, Modifier.weight(1f).fillMaxHeight())
-                        }
-                    }
+            // Per-cell highlight state
+            val selectedSet = selectedCells.toHashSet()
+            val hintedSet = hintedCells.toHashSet()
+            val foundColorByCell = HashMap<Pair<Int, Int>, Color>().apply {
+                foundWordPaths.forEachIndexed { index, (_, path) ->
+                    val c = getWordColor(index)
+                    path.forEach { cell -> this[cell] = c }
                 }
             }
-            // Translucent highlight overlay drawn on top of the tiles.
+
+            // 1) Connecting line BEHIND the tiles — shows through the gaps so you can
+            //    see what's linked. Capped at the first/last tile centres (no bleed).
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val cellSize = size.width / grid[0].size
-                // Draw found word paths
-                foundWordPaths.forEachIndexed { index, (word, path) ->
-                    if (path.size >= 1) {
-                        val color = getWordColor(index).copy(alpha = 0.5f)
-
-                        if (path.size == 1) {
-                            // Single letter word - draw a circle
-                            val centerX = (path[0].second + 0.5f) * cellSize
-                            val centerY = (path[0].first + 0.5f) * cellSize
-                            drawCircle(
-                                color = color,
-                                radius = cellSize * 0.4f,
-                                center = Offset(centerX, centerY)
-                            )
-                        } else {
-                            // Multi-letter word - draw line from first to last with extension
-                            val firstCell = path.first()
-                            val lastCell = path.last()
-
-                            val firstX = (firstCell.second + 0.5f) * cellSize
-                            val firstY = (firstCell.first + 0.5f) * cellSize
-                            val lastX = (lastCell.second + 0.5f) * cellSize
-                            val lastY = (lastCell.first + 0.5f) * cellSize
-
-                            // Calculate direction vector
-                            val dx = lastX - firstX
-                            val dy = lastY - firstY
-                            val length = kotlin.math.sqrt(dx * dx + dy * dy)
-
-                            // Normalize and extend by 0.5 cells in each direction
-                            val extension = cellSize * 0.5f
-                            val ndx = (dx / length) * extension
-                            val ndy = (dy / length) * extension
-
-                            val startX = firstX - ndx
-                            val startY = firstY - ndy
-                            val endX = lastX + ndx
-                            val endY = lastY + ndy
-
-                            drawLine(
-                                color = color,
-                                start = Offset(startX, startY),
-                                end = Offset(endX, endY),
-                                strokeWidth = cellSize * 0.8f,
-                                cap = androidx.compose.ui.graphics.StrokeCap.Round
-                            )
-                        }
-                    }
-                }
-
-                // Draw current selection
-                if (selectedCells.size >= 1) {
-                    val selectionColor = SelectBlue.copy(alpha = 0.55f)
-
-                    if (selectedCells.size == 1) {
-                        // Single letter - draw a circle
-                        val centerX = (selectedCells[0].second + 0.5f) * cellSize
-                        val centerY = (selectedCells[0].first + 0.5f) * cellSize
-                        drawCircle(
-                            color = selectionColor,
-                            radius = cellSize * 0.4f,
-                            center = Offset(centerX, centerY)
-                        )
-                    } else {
-                        // Multi-letter - draw line from first to last with extension
-                        val firstCell = selectedCells.first()
-                        val lastCell = selectedCells.last()
-
-                        val firstX = (firstCell.second + 0.5f) * cellSize
-                        val firstY = (firstCell.first + 0.5f) * cellSize
-                        val lastX = (lastCell.second + 0.5f) * cellSize
-                        val lastY = (lastCell.first + 0.5f) * cellSize
-
-                        // Calculate direction vector
-                        val dx = lastX - firstX
-                        val dy = lastY - firstY
-                        val length = kotlin.math.sqrt(dx * dx + dy * dy)
-
-                        // Normalize and extend by 0.5 cells in each direction
-                        val extension = cellSize * 0.5f
-                        val ndx = (dx / length) * extension
-                        val ndy = (dy / length) * extension
-
-                        val startX = firstX - ndx
-                        val startY = firstY - ndy
-                        val endX = lastX + ndx
-                        val endY = lastY + ndy
-
+                val stroke = cellSize * 0.60f
+                fun center(cell: Pair<Int, Int>) =
+                    Offset((cell.second + 0.5f) * cellSize, (cell.first + 0.5f) * cellSize)
+                foundWordPaths.forEachIndexed { index, (_, path) ->
+                    if (path.size >= 2) {
                         drawLine(
-                            color = selectionColor,
-                            start = Offset(startX, startY),
-                            end = Offset(endX, endY),
-                            strokeWidth = cellSize * 0.8f,
-                            cap = androidx.compose.ui.graphics.StrokeCap.Round
+                            getWordColor(index), center(path.first()), center(path.last()),
+                            strokeWidth = stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round
                         )
                     }
                 }
+                if (selectedCells.size >= 2) {
+                    drawLine(
+                        SelectBlue, center(selectedCells.first()), center(selectedCells.last()),
+                        strokeWidth = stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round
+                    )
+                }
+            }
 
-                // Draw hinted cells (pulsing purple highlight over each cell)
-                if (hintedCells.isNotEmpty()) {
-                    val hintColor = HintHighlight.copy(alpha = 0.45f)
-                    hintedCells.forEach { (row, col) ->
-                        val centerX = (col + 0.5f) * cellSize
-                        val centerY = (row + 0.5f) * cellSize
-                        drawCircle(
-                            color = hintColor,
-                            radius = cellSize * 0.42f,
-                            center = Offset(centerX, centerY)
-                        )
+            // 2) Letter tiles ON TOP — each tile is highlighted by its own state, so the
+            //    actual selected tiles light up (not just a line).
+            Column(modifier = Modifier.fillMaxSize()) {
+                grid.forEachIndexed { r, row ->
+                    Row(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                        row.forEachIndexed { c, char ->
+                            val cell = r to c
+                            val tileColor: Color
+                            val textColor: Color
+                            when {
+                                selectedSet.contains(cell) -> { tileColor = SelectBlue; textColor = Color.White }
+                                hintedSet.contains(cell) -> { tileColor = HintHighlight; textColor = Color.White }
+                                foundColorByCell[cell] != null -> { tileColor = foundColorByCell[cell]!!; textColor = Color.White }
+                                else -> { tileColor = MaterialTheme.colorScheme.surface; textColor = MaterialTheme.colorScheme.onSurface }
+                            }
+                            GridCell(char, Modifier.weight(1f).fillMaxHeight(), tileColor, textColor)
+                        }
                     }
                 }
             }
@@ -723,7 +647,12 @@ fun getWordColor(index: Int): Color {
 }
 
 @Composable
-fun GridCell(char: Char, modifier: Modifier = Modifier) {
+fun GridCell(
+    char: Char,
+    modifier: Modifier = Modifier,
+    tileColor: Color = Color.White,
+    textColor: Color = Color.Black
+) {
     // Fills the cell its parent allotted (via weight) so the visible tile lines up
     // exactly with the touch + highlight grid. The inset padding shows the board
     // trough between tiles.
@@ -731,14 +660,14 @@ fun GridCell(char: Char, modifier: Modifier = Modifier) {
         modifier = modifier
             .padding(3.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(GridTile),
+            .background(tileColor),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = char.uppercase(),
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
-            color = Ink,
+            color = textColor,
             maxLines = 1
         )
     }
