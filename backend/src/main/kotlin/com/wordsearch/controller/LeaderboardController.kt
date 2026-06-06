@@ -27,7 +27,8 @@ class LeaderboardController(
                     "score" to entry.score
                 )
             }
-            ResponseEntity.ok(mapOf("boardType" to boardType, "period" to period, "entries" to ranked))
+            // Bare array to match the Android LeaderboardApi contract (List<LeaderboardRowDto>).
+            ResponseEntity.ok(ranked)
         } catch (e: Exception) {
             ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)

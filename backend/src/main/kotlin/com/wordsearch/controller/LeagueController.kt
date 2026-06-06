@@ -41,19 +41,18 @@ class LeagueController(
                     "rank" to index + 1,
                     "userId" to m.userId.toString(),
                     "username" to (usernames[m.userId] ?: ""),
-                    "weeklyScore" to m.weeklyScore
+                    "weeklyScore" to m.weeklyScore,
+                    "result" to m.result
                 )
             }
 
+            // Flat shape matching the Android LeagueMeResponse contract.
             ResponseEntity.ok(
                 mapOf(
-                    "cohortId" to membership.cohortId.toString(),
+                    "tierName" to (tier?.name ?: "Bronze"),
+                    "tierOrder" to (tier?.tierOrder ?: 1),
                     "weekKey" to leagueService.weekKey(today),
-                    "tier" to mapOf(
-                        "id" to (tier?.id ?: 0),
-                        "name" to (tier?.name ?: "Bronze"),
-                        "tierOrder" to (tier?.tierOrder ?: 1)
-                    ),
+                    "myUserId" to userId.toString(),
                     "standings" to ranked
                 )
             )
