@@ -106,6 +106,10 @@ interface GameApi {
 
     @POST("api/premium/restore")
     suspend fun restorePurchase(@Body request: RestoreRequest): Response<RestoreResponse>
+
+    // Hints
+    @POST("api/sessions/{sessionId}/hint")
+    suspend fun useHint(@Path("sessionId") sessionId: String): Response<HintResponse>
 }
 
 // Additional request/response models
