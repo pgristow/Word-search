@@ -235,6 +235,14 @@ data class RestoreRequest(
     val purchaseToken: String
 )
 
+// Store purchase: itemType is "THEME" or "CATEGORY"; itemId is the target UUID.
+data class PurchaseItemRequest(
+    @field:NotBlank(message = "itemType is required")
+    val itemType: String,
+    @field:NotBlank(message = "itemId is required")
+    val itemId: String
+)
+
 data class RestoreResponse(
     val success: Boolean,
     val isPremium: Boolean,
