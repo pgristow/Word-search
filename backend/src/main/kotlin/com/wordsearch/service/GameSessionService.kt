@@ -21,6 +21,7 @@ class GameSessionService(
     private val userFoundWordRepository: UserFoundWordRepository,
     private val scoringService: ScoringService,
     private val wordClassifier: WordClassifier,
+    private val economyService: EconomyService,
     private val objectMapper: com.fasterxml.jackson.databind.ObjectMapper
 ) {
 
@@ -222,6 +223,18 @@ class GameSessionService(
         }
         userProgressRepository.save(updatedProgress)
 
+        // Bonus words award coins; classic targets do not. coinBalance always
+        // reflects the user's wallet after this submission.
+        val coinsEarned: Long
+        val coinBalance: Long
+        if (isBonus) {
+            coinsEarned = economyService.bonusWordCoins(resolvedWord.length)
+            coinBalance = economyService.earn(userId, coinsEarned, "BONUS_WORD", null)
+        } else {
+            coinsEarned = 0
+            coinBalance = updatedProgress.coins
+        }
+
         val breakdown = mapOf(
             "base" to 100 * resolvedWord.length,
             "lengthBonus" to scoringService.lengthBonus(resolvedWord.length),
@@ -242,8 +255,8 @@ class GameSessionService(
             message = if (isBonus) "Bonus word!" else "Correct!",
             isBonus = isBonus,
             wordLength = resolvedWord.length,
-            coinsEarned = 0, // wired to EconomyService in Phase 2
-            coinBalance = updatedProgress.coins,
+            coinsEarned = coinsEarned,
+            coinBalance = coinBalance,
             scoreBreakdown = breakdown
         )
     }

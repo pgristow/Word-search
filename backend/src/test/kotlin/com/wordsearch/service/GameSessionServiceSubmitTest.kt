@@ -26,6 +26,7 @@ class GameSessionServiceSubmitTest {
     private lateinit var categoryRepository: CategoryRepository
     private lateinit var wordRepository: WordRepository
     private lateinit var userFoundWordRepository: UserFoundWordRepository
+    private lateinit var economyService: EconomyService
     private lateinit var service: GameSessionService
 
     private val userId = UUID.randomUUID()
@@ -46,11 +47,14 @@ class GameSessionServiceSubmitTest {
         wordRepository = mockk()
         userFoundWordRepository = mockk(relaxed = true)
         val dictionary = DictionaryService("/data/words_test.txt", 3)
+        economyService = mockk(relaxed = true)
+        every { economyService.bonusWordCoins(any()) } answers { 5L + 2L * maxOf(0, firstArg<Int>() - 3) }
+        every { economyService.earn(any(), any(), any(), any()) } returns 42L
         service = GameSessionService(
             gameSessionRepository, userProgressRepository,
             GameBoardGenerator(wordRepository, categoryRepository),
             categoryRepository, wordRepository, userFoundWordRepository,
-            ScoringService(), WordClassifier(dictionary), mapper
+            ScoringService(), WordClassifier(dictionary), economyService, mapper
         )
 
         val session = GameSession(
@@ -87,6 +91,8 @@ class GameSessionServiceSubmitTest {
         assertTrue(r.isBonus)
         assertEquals(0, r.wordsFoundInSession) // bonus does not advance puzzle completion
         assertEquals("Bonus word!", r.message)
+        assertEquals(5L, r.coinsEarned) // DOG len 3 -> bonusWordCoins(3) = 5
+        assertEquals(42L, r.coinBalance) // balance returned by economyService.earn stub
     }
 
     @Test fun `cannot claim a target word without tracing it (anti-spoof)`() {
