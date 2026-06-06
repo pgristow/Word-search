@@ -9,12 +9,17 @@ data class StartSessionRequest(
     val gameMode: String = "CLASSIC" // CLASSIC or CASUAL
 )
 
+data class CellDto(val row: Int = 0, val col: Int = 0)
+
 data class SubmitWordRequest(
     @field:NotBlank(message = "Word is required")
     val word: String,
     val isReversed: Boolean = false,
     val isDiagonal: Boolean = false,
-    val timeElapsed: Int = 0
+    val timeElapsed: Int = 0,
+    // Ordered cells the player traced. Required for bonus-word recognition + anti-spoof;
+    // empty list falls back to legacy word-only matching (target words only).
+    val path: List<CellDto> = emptyList()
 )
 
 data class WordSubmissionResponse(
@@ -27,7 +32,12 @@ data class WordSubmissionResponse(
     val leveledUp: Boolean = false, // Deprecated, use levelUp
     val newLevel: Int? = null,
     val wordsFoundInSession: Int = 0,
-    val message: String
+    val message: String,
+    val isBonus: Boolean = false,
+    val wordLength: Int = 0,
+    val coinsEarned: Long = 0,
+    val coinBalance: Long = 0,
+    val scoreBreakdown: Map<String, Int> = emptyMap()
 )
 
 data class SessionEndResponse(

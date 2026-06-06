@@ -333,6 +333,20 @@ data class GameBoard(
     val gridSize: Int,
     val category: String
 ) {
+    /** Snapshot for persistence + server-authoritative validation. */
+    fun toBoardState(): BoardState = BoardState(
+        gridSize = gridSize,
+        grid = grid.map { String(it) },
+        solution = placedWords.map {
+            SolutionWord(
+                word = it.word.uppercase(),
+                path = it.cellPath(),
+                isReversed = it.isReversed,
+                direction = it.direction.name
+            )
+        }
+    )
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
@@ -365,7 +379,13 @@ data class PlacedWord(
     val startRow: Int,
     val startCol: Int,
     val direction: Direction
-)
+) {
+    /** The exact grid cells this word occupies, from start following the direction. */
+    fun cellPath(): List<Cell> {
+        val (dr, dc) = direction.deltas
+        return displayWord.indices.map { i -> Cell(startRow + dr * i, startCol + dc * i) }
+    }
+}
 
 data class DifficultyConfig(
     val gridSize: Int,

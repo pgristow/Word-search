@@ -61,7 +61,8 @@ class GameSessionController(
                 word = request.word.uppercase(),
                 isReversed = request.isReversed,
                 isDiagonal = request.isDiagonal,
-                timeElapsed = request.timeElapsed
+                timeElapsed = request.timeElapsed,
+                path = request.path
             )
             ResponseEntity.ok(response)
         } catch (e: IllegalArgumentException) {

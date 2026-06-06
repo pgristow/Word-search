@@ -2,6 +2,7 @@ package com.wordsearch.service
 
 import com.wordsearch.model.*
 import com.wordsearch.repository.*
+import com.wordsearch.dto.CellDto
 import com.wordsearch.dto.GameSessionResponse
 import com.wordsearch.dto.WordInfo
 import com.wordsearch.dto.WordSubmissionResponse
@@ -17,7 +18,10 @@ class GameSessionService(
     private val gameBoardGenerator: GameBoardGenerator,
     private val categoryRepository: CategoryRepository,
     private val wordRepository: WordRepository,
-    private val userFoundWordRepository: UserFoundWordRepository
+    private val userFoundWordRepository: UserFoundWordRepository,
+    private val scoringService: ScoringService,
+    private val wordClassifier: WordClassifier,
+    private val objectMapper: com.fasterxml.jackson.databind.ObjectMapper
 ) {
 
     @Transactional
@@ -38,16 +42,6 @@ class GameSessionService(
         val category = categoryRepository.findById(categoryId)
             .orElseThrow { IllegalArgumentException("Category not found") }
 
-        // Create new game session
-        val session = GameSession(
-            userId = userId,
-            categoryId = categoryId,
-            startingLevel = userProgress.currentLevel,
-            sessionStart = LocalDateTime.now(),
-            gameMode = gameMode
-        )
-        val savedSession = gameSessionRepository.save(session)
-
         // Generate game board
         val words = wordRepository.findByCategoryId(categoryId).map { it.word }
         val gameBoard = gameBoardGenerator.generateBoard(
@@ -55,6 +49,17 @@ class GameSessionService(
             words = words,
             categoryName = category.name
         )
+
+        // Create new game session, persisting the board for server-side validation
+        val session = GameSession(
+            userId = userId,
+            categoryId = categoryId,
+            startingLevel = userProgress.currentLevel,
+            sessionStart = LocalDateTime.now(),
+            gameMode = gameMode,
+            boardState = objectMapper.writeValueAsString(gameBoard.toBoardState())
+        )
+        val savedSession = gameSessionRepository.save(session)
 
         return GameSessionResponse(
             sessionId = savedSession.id.toString(),
@@ -87,7 +92,8 @@ class GameSessionService(
         word: String,
         isReversed: Boolean,
         isDiagonal: Boolean,
-        timeElapsed: Int
+        timeElapsed: Int,
+        path: List<CellDto> = emptyList()
     ): WordSubmissionResponse {
         val session = gameSessionRepository.findById(sessionId)
             .orElseThrow { IllegalArgumentException("Session not found") }
@@ -95,150 +101,150 @@ class GameSessionService(
         if (session.userId != userId) {
             throw IllegalArgumentException("Unauthorized")
         }
-
         if (!session.isActive) {
             throw IllegalArgumentException("Session is not active")
         }
 
-        // Get category for this session to retrieve the word list
-        val category = categoryRepository.findById(session.categoryId ?: throw IllegalArgumentException("Session has no category"))
-            .orElseThrow { IllegalArgumentException("Category not found") }
+        val category = categoryRepository.findById(
+            session.categoryId ?: throw IllegalArgumentException("Session has no category")
+        ).orElseThrow { IllegalArgumentException("Category not found") }
 
-        val validWords = wordRepository.findByCategoryId(category.id).map { it.word.uppercase() }
+        val targets = wordRepository.findByCategoryId(category.id).map { it.word.uppercase() }.toSet()
+        val alreadyFound = userFoundWordRepository.findBySessionId(sessionId).map { it.word.uppercase() }.toSet()
 
-        // Validate the submitted word exists in the word list
-        val wordUppercase = word.uppercase()
-        if (!validWords.contains(wordUppercase)) {
-            // Reset combo on mistake
-            val resetSession = session.copy(currentCombo = 0)
-            gameSessionRepository.save(resetSession)
+        // Server-authoritative classification when we have a board + traced path; otherwise
+        // fall back to legacy word-string matching (target words only, no bonus).
+        val board = session.boardState?.let { BoardState.fromJson(it, objectMapper) }
+        val cells = path.map { Cell(it.row, it.col) }
 
-            return WordSubmissionResponse(
-                correct = false,
-                score = 0,
-                totalScore = session.totalScore.toLong(),
-                currentCombo = 0,
-                combo = 0,
-                levelUp = false,
-                leveledUp = false,
-                newLevel = null,
-                wordsFoundInSession = session.wordsFound,
-                message = "Word not in list"
-            )
-        }
-
-        // Check if word was already found in this session (prevent duplicates)
-        val alreadyFound = userFoundWordRepository.existsBySessionIdAndWord(sessionId, wordUppercase)
-        if (alreadyFound) {
-            // Reset combo on mistake
-            val resetSession = session.copy(currentCombo = 0)
-            gameSessionRepository.save(resetSession)
-
-            return WordSubmissionResponse(
-                correct = false,
-                score = 0,
-                totalScore = session.totalScore.toLong(),
-                currentCombo = 0,
-                combo = 0,
-                levelUp = false,
-                leveledUp = false,
-                newLevel = null,
-                wordsFoundInSession = session.wordsFound,
-                message = "Already found"
-            )
-        }
-
-        // Mode-specific scoring
-        val score: Int
-        val currentCombo: Int
-
-        if (session.gameMode == GameMode.CASUAL) {
-            // Casual mode: Simple scoring, no combos or time bonuses
-            score = calculateCasualScore(word)
-            currentCombo = 0
+        val classification: Classification = if (board != null && cells.size >= 3) {
+            wordClassifier.classify(board, cells, targets, alreadyFound)
         } else {
-            // Classic mode: Full competitive scoring
-            // Check if combo should reset due to time (30 seconds since last word)
-            val now = LocalDateTime.now()
-            val timeSinceLastWord = if (session.lastWordFoundAt != null) {
-                java.time.Duration.between(session.lastWordFoundAt, now).seconds
-            } else {
-                0L
+            val w = word.uppercase()
+            when {
+                alreadyFound.contains(w) -> Classification(WordClass.INVALID, w, "Already found")
+                targets.contains(w) -> Classification(WordClass.TARGET, w)
+                else -> Classification(WordClass.INVALID, w, "Word not in list")
             }
+        }
 
-            // Reset combo if too much time has passed (30 seconds)
-            val comboBeforeWord = if (timeSinceLastWord > 30) 0 else session.currentCombo
-
-            // Increment combo for this successful word
-            currentCombo = comboBeforeWord + 1
-
-            score = gameBoardGenerator.calculateWordScore(
-                word = word,
-                isReversed = isReversed,
-                isDiagonal = isDiagonal,
-                timeElapsed = timeElapsed,
-                currentCombo = currentCombo
+        if (classification.wordClass == WordClass.INVALID) {
+            gameSessionRepository.save(session.copy(currentCombo = 0))
+            return WordSubmissionResponse(
+                correct = false, score = 0, totalScore = session.totalScore.toLong(),
+                currentCombo = 0, combo = 0, levelUp = false, leveledUp = false, newLevel = null,
+                wordsFoundInSession = session.wordsFound,
+                message = classification.reason.ifBlank { "Not a word" }
             )
         }
 
-        // Record the found word
-        val foundWord = UserFoundWord(
-            userId = userId,
-            sessionId = sessionId,
-            word = wordUppercase,
-            isReversed = isReversed,
-            scoreEarned = score
-        )
-        userFoundWordRepository.save(foundWord)
+        val resolvedWord = classification.word
+        val isBonus = classification.wordClass == WordClass.BONUS
 
-        // Update session
+        // Diagonal derived from the traced path (server-authoritative); reversed from the
+        // client flag (only scales bonus magnitude, low cheat value).
+        val diagonal = if (cells.size >= 2) {
+            (cells[1].row - cells[0].row) != 0 && (cells[1].col - cells[0].col) != 0
+        } else isDiagonal
+
+        val now = LocalDateTime.now()
+        val timeSinceLastWord = session.lastWordFoundAt
+            ?.let { java.time.Duration.between(it, now).seconds } ?: 0L
+
+        val scoreMode = when {
+            session.gameMode == GameMode.CASUAL -> ScoreMode.CASUAL
+            isBonus -> ScoreMode.BONUS
+            else -> ScoreMode.CLASSIC_TARGET
+        }
+
+        // Combo advances only on classic target words; bonus words don't touch the chain.
+        val currentCombo = if (scoreMode == ScoreMode.CLASSIC_TARGET) {
+            (if (timeSinceLastWord > 30) 0 else session.currentCombo) + 1
+        } else {
+            session.currentCombo
+        }
+
+        val score = scoringService.score(
+            ScoreInput(resolvedWord, isReversed, diagonal, timeElapsed, currentCombo, scoreMode)
+        )
+
+        userFoundWordRepository.save(
+            UserFoundWord(
+                userId = userId,
+                sessionId = sessionId,
+                word = resolvedWord,
+                isReversed = isReversed,
+                scoreEarned = score,
+                isBonus = isBonus,
+                wordLength = resolvedWord.length,
+                path = if (cells.isNotEmpty()) objectMapper.writeValueAsString(cells) else null
+            )
+        )
+
+        // Bonus words do NOT count toward puzzle completion.
         val updatedSession = session.copy(
             totalScore = session.totalScore + score,
-            wordsFound = session.wordsFound + 1,
+            wordsFound = if (isBonus) session.wordsFound else session.wordsFound + 1,
             currentCombo = currentCombo,
             highestCombo = maxOf(session.highestCombo, currentCombo),
-            lastWordFoundAt = LocalDateTime.now()
+            lastWordFoundAt = if (scoreMode == ScoreMode.CLASSIC_TARGET) now else session.lastWordFoundAt
         )
         gameSessionRepository.save(updatedSession)
 
-        // Update user progress
         val userProgress = userProgressRepository.findByUserId(userId)
             ?: throw IllegalArgumentException("User progress not found")
 
-        val updatedProgress = userProgress.copy(
-            totalScore = userProgress.totalScore + score,
+        // Casual play does not affect competitive progression (level/weekly/lifetime score).
+        val affectsProgression = session.gameMode != GameMode.CASUAL
+        var updatedProgress = userProgress.copy(
+            totalScore = if (affectsProgression) userProgress.totalScore + score else userProgress.totalScore,
+            weeklyScore = if (affectsProgression) userProgress.weeklyScore + score else userProgress.weeklyScore,
             totalWordsFound = userProgress.totalWordsFound + 1,
             totalReversedWordsFound = if (isReversed) userProgress.totalReversedWordsFound + 1
                                       else userProgress.totalReversedWordsFound,
+            totalBonusWordsFound = if (isBonus) userProgress.totalBonusWordsFound + 1
+                                   else userProgress.totalBonusWordsFound,
+            longestWordFound = maxOf(userProgress.longestWordFound, resolvedWord.length),
             highestCombo = maxOf(userProgress.highestCombo, currentCombo),
-            lastPlayedAt = LocalDateTime.now(),
-            updatedAt = LocalDateTime.now()
+            lastPlayedAt = now,
+            updatedAt = now
         )
-        userProgressRepository.save(updatedProgress)
 
-        // Check for level up
-        val newLevel = gameBoardGenerator.calculateLevel(updatedProgress.totalScore)
+        val newLevel = if (affectsProgression) {
+            gameBoardGenerator.calculateLevel(updatedProgress.totalScore)
+        } else userProgress.currentLevel
         val leveledUp = newLevel > updatedProgress.currentLevel
-
         if (leveledUp) {
-            val progressWithNewLevel = updatedProgress.copy(
+            updatedProgress = updatedProgress.copy(
                 currentLevel = newLevel,
                 highestLevelReached = maxOf(updatedProgress.highestLevelReached, newLevel)
             )
-            userProgressRepository.save(progressWithNewLevel)
         }
+        userProgressRepository.save(updatedProgress)
+
+        val breakdown = mapOf(
+            "base" to 100 * resolvedWord.length,
+            "lengthBonus" to scoringService.lengthBonus(resolvedWord.length),
+            "comboMultiplier" to if (scoreMode == ScoreMode.CLASSIC_TARGET)
+                scoringService.comboMultiplier(currentCombo) else 1
+        )
 
         return WordSubmissionResponse(
             correct = true,
             score = score,
-            totalScore = updatedProgress.totalScore + score,
+            totalScore = updatedProgress.totalScore,
             currentCombo = currentCombo,
             combo = currentCombo,
             levelUp = leveledUp,
             leveledUp = leveledUp,
             newLevel = if (leveledUp) newLevel else null,
             wordsFoundInSession = updatedSession.wordsFound,
-            message = "Correct!"
+            message = if (isBonus) "Bonus word!" else "Correct!",
+            isBonus = isBonus,
+            wordLength = resolvedWord.length,
+            coinsEarned = 0, // wired to EconomyService in Phase 2
+            coinBalance = updatedProgress.coins,
+            scoreBreakdown = breakdown
         )
     }
 
@@ -366,14 +372,6 @@ class GameSessionService(
         return getActiveSession(userId)
     }
 
-    /**
-     * Calculate score for casual mode
-     * Simple scoring: 100 points per character in the word
-     * No bonuses for reversed, diagonal, speed, or combos
-     */
-    private fun calculateCasualScore(word: String): Int {
-        return 100 * word.length
-    }
 }
 
 // DTOs specific to service
