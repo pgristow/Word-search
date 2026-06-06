@@ -14,6 +14,7 @@ import com.wordsearch.ui.game.GameScreen
 import com.wordsearch.ui.achievements.AchievementsScreen
 import com.wordsearch.ui.leaderboard.LeaderboardScreen
 import com.wordsearch.ui.challenge.DailyChallengeScreen
+import com.wordsearch.ui.league.LeagueScreen
 
 sealed class Screen(val route: String) {
     object Login : Screen("login")
@@ -27,6 +28,7 @@ sealed class Screen(val route: String) {
     }
     object Achievements : Screen("achievements")
     object Leaderboard : Screen("leaderboard")
+    object League : Screen("league")
     object DailyChallenge : Screen("daily_challenge")
     object Premium : Screen("premium")
 }
@@ -153,6 +155,14 @@ fun NavGraph(
                 },
                 onNavigateToGame = { attemptId, challengeId ->
                     navController.navigate(Screen.Game.createRoute(challengeId, "CHALLENGE"))
+                }
+            )
+        }
+
+        composable(Screen.League.route) {
+            LeagueScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }

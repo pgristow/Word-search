@@ -3,8 +3,8 @@ package com.wordsearch.ui.leaderboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wordsearch.data.local.TokenManager
-import com.wordsearch.data.model.LeaderboardEntry
-import com.wordsearch.data.repository.GameRepository
+import com.wordsearch.data.model.LeaderboardRowDto
+import com.wordsearch.data.repository.LeaderboardRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,18 +13,32 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 
+enum class LeaderboardTab(val boardType: String, val label: String) {
+    GLOBAL("GLOBAL_CLASSIC", "Global"),
+    CASUAL("CASUAL_BEST", "Casual")
+}
+
 @HiltViewModel
 class LeaderboardViewModel @Inject constructor(
-    private val gameRepository: GameRepository,
+    private val leaderboardRepository: LeaderboardRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<LeaderboardUiState>(LeaderboardUiState.Loading)
     val uiState: StateFlow<LeaderboardUiState> = _uiState.asStateFlow()
 
-    private val currentUserId = tokenManager.getUserId()
+    private val _selectedTab = MutableStateFlow(LeaderboardTab.GLOBAL)
+    val selectedTab: StateFlow<LeaderboardTab> = _selectedTab.asStateFlow()
+
+    val currentUserId: String? = tokenManager.getUserId()
 
     init {
+        loadLeaderboard()
+    }
+
+    fun selectTab(tab: LeaderboardTab) {
+        if (_selectedTab.value == tab) return
+        _selectedTab.value = tab
         loadLeaderboard()
     }
 
@@ -33,10 +47,10 @@ class LeaderboardViewModel @Inject constructor(
             _uiState.value = LeaderboardUiState.Loading
 
             try {
-                val result = gameRepository.getLeaderboard(100)
+                val result = leaderboardRepository.getBoard(_selectedTab.value.boardType)
                 if (result.isSuccess) {
-                    val entries = result.getOrNull() ?: emptyList()
-                    _uiState.value = LeaderboardUiState.Success(entries, currentUserId)
+                    val rows = result.getOrNull() ?: emptyList()
+                    _uiState.value = LeaderboardUiState.Success(rows, currentUserId)
                 } else {
                     _uiState.value = LeaderboardUiState.Error(
                         result.exceptionOrNull()?.message ?: "Failed to load leaderboard"
@@ -55,7 +69,7 @@ class LeaderboardViewModel @Inject constructor(
 sealed class LeaderboardUiState {
     object Loading : LeaderboardUiState()
     data class Success(
-        val entries: List<LeaderboardEntry>,
+        val rows: List<LeaderboardRowDto>,
         val currentUserId: String?
     ) : LeaderboardUiState()
     data class Error(val message: String) : LeaderboardUiState()

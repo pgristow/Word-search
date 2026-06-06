@@ -3,6 +3,8 @@ package com.wordsearch.di
 import com.wordsearch.BuildConfig
 import com.wordsearch.data.api.AuthApi
 import com.wordsearch.data.api.GameApi
+import com.wordsearch.data.api.LeagueApi
+import com.wordsearch.data.api.LeaderboardApi
 import com.wordsearch.data.local.TokenManager
 import dagger.Module
 import dagger.Provides
@@ -82,5 +84,17 @@ object NetworkModule {
     @Singleton
     fun provideGameApi(retrofit: Retrofit): GameApi {
         return retrofit.create(GameApi::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideLeagueApi(retrofit: Retrofit): LeagueApi {
+        return retrofit.create(LeagueApi::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideLeaderboardApi(retrofit: Retrofit): LeaderboardApi {
+        return retrofit.create(LeaderboardApi::class.java)
     }
 }
