@@ -40,6 +40,14 @@ data class WordSubmissionResponse(
     val scoreBreakdown: Map<String, Int> = emptyMap()
 )
 
+// Hint: reveals one unfound target word (its cells) in exchange for coins.
+data class HintResponse(
+    val word: String,
+    val cells: List<CellDto>,
+    val coinsSpent: Long,
+    val coinBalance: Long
+)
+
 data class SessionEndResponse(
     val finalScore: Int,
     val wordsFound: Int,

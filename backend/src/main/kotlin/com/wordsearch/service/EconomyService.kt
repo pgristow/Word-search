@@ -21,6 +21,8 @@ class EconomyService(
         const val BONUS_WORD_BASE: Long = 5L
         /** Extra coins per letter beyond the 3-letter minimum. */
         const val BONUS_WORD_PER_EXTRA_LETTER: Long = 2L
+        /** Coins charged to reveal a single target word via a hint. */
+        const val HINT_COST: Long = 30L
     }
 
     /** Coins awarded for a bonus word of the given length. */

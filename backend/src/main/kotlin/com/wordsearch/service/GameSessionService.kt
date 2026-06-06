@@ -4,6 +4,7 @@ import com.wordsearch.model.*
 import com.wordsearch.repository.*
 import com.wordsearch.dto.CellDto
 import com.wordsearch.dto.GameSessionResponse
+import com.wordsearch.dto.HintResponse
 import com.wordsearch.dto.WordInfo
 import com.wordsearch.dto.WordSubmissionResponse
 import org.springframework.stereotype.Service
@@ -282,6 +283,46 @@ class GameSessionService(
             coinsEarned = coinsEarned,
             coinBalance = coinBalance,
             scoreBreakdown = breakdown
+        )
+    }
+
+    /**
+     * Reveals the first not-yet-found target word for [sessionId], charging
+     * [EconomyService.HINT_COST] coins. The board is parsed server-side so the
+     * revealed cell path is authoritative. Throws if the session is missing/inactive,
+     * not owned by [userId], has no board, or has no unfound target words left.
+     * Propagates [InsufficientCoinsException] when the player cannot afford it.
+     */
+    @Transactional
+    fun useHint(sessionId: UUID, userId: UUID): HintResponse {
+        val session = gameSessionRepository.findById(sessionId)
+            .orElseThrow { IllegalArgumentException("Session not found") }
+
+        if (session.userId != userId) {
+            throw IllegalArgumentException("Unauthorized")
+        }
+        if (!session.isActive) {
+            throw IllegalArgumentException("Session is not active")
+        }
+
+        val board = session.boardState?.let { BoardState.fromJson(it, objectMapper) }
+            ?: throw IllegalArgumentException("Session has no board")
+
+        val foundTargets = userFoundWordRepository.findBySessionId(sessionId)
+            .filter { !it.isBonus }
+            .map { it.word.uppercase() }
+            .toSet()
+
+        val reveal = board.solution.firstOrNull { it.word.uppercase() !in foundTargets }
+            ?: throw IllegalArgumentException("No words left to reveal")
+
+        val coinBalance = economyService.spend(userId, EconomyService.HINT_COST, "HINT", sessionId)
+
+        return HintResponse(
+            word = reveal.word,
+            cells = reveal.path.map { CellDto(it.row, it.col) },
+            coinsSpent = EconomyService.HINT_COST,
+            coinBalance = coinBalance
         )
     }
 

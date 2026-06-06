@@ -4,7 +4,9 @@ import com.wordsearch.dto.ErrorResponse
 import com.wordsearch.dto.StartSessionRequest
 import com.wordsearch.dto.SubmitWordRequest
 import com.wordsearch.model.GameMode
+import com.wordsearch.service.EconomyService
 import com.wordsearch.service.GameSessionService
+import com.wordsearch.service.InsufficientCoinsException
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -69,6 +71,36 @@ class GameSessionController(
             ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(ErrorResponse(e.message ?: "Failed to submit word"))
+        } catch (e: Exception) {
+            ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorResponse(e.message ?: "Internal server error"))
+        }
+    }
+
+    // Reveals one unfound target word, charging coins. Mapped at the spec's
+    // absolute path (/api/sessions/...) which intentionally differs from this
+    // controller's /api/game/session base for the client contract.
+    @PostMapping("/api/sessions/{sessionId}/hint")
+    fun useHint(
+        @PathVariable sessionId: String,
+        authentication: Authentication
+    ): ResponseEntity<Any> {
+        return try {
+            val userId = authentication.principal as String
+            val response = gameSessionService.useHint(
+                sessionId = UUID.fromString(sessionId),
+                userId = UUID.fromString(userId)
+            )
+            ResponseEntity.ok(response)
+        } catch (e: InsufficientCoinsException) {
+            ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse(e.message ?: "Insufficient coins"))
+        } catch (e: IllegalArgumentException) {
+            ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse(e.message ?: "Failed to use hint"))
         } catch (e: Exception) {
             ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
