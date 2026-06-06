@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.FlowRow
@@ -42,6 +43,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.wordsearch.data.model.GameSession
 import com.wordsearch.ui.theme.WordFound
 import com.wordsearch.ui.theme.WordSelected
+import com.wordsearch.ui.theme.BoardTrough
+import com.wordsearch.ui.theme.GridTile
+import com.wordsearch.ui.theme.Ink
+import com.wordsearch.ui.theme.SelectBlue
+import com.wordsearch.ui.theme.FoundWordPalette
 import androidx.compose.ui.draw.drawBehind
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -196,8 +202,8 @@ fun GameScreen(
 }
 
 // Amber/gold tone for bonus word feedback
-private val BonusGold = Color(0xFFFFC107)
-private val BonusGoldContainer = Color(0xFFFFF8E1)
+private val BonusGold = Color(0xFFF2A03D)
+private val BonusGoldContainer = Color(0xFFFBE7CC)
 
 @Composable
 fun GamePlayingContent(
@@ -521,7 +527,7 @@ fun StatChip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: Strin
 }
 
 // Distinct colour for hinted-word highlight (purple-ish)
-private val HintHighlight = Color(0xFF9C27B0)
+private val HintHighlight = Color(0xFF8B7FD6)
 
 @Composable
 fun WordGrid(
@@ -575,13 +581,25 @@ fun WordGrid(
                 )
             }
     ) {
-        val cellSize = with(density) { (maxWidth / grid[0].size.toFloat()).toPx() }
-
-        // Draw the grid with lines behind letters
         Box(modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFFFF8E1)) // Cream background
-            .drawBehind {
+            .clip(RoundedCornerShape(20.dp))
+            .background(BoardTrough)
+        ) {
+            // Letter tiles fill the board uniformly via weights, so the visible tile
+            // lines up exactly with the touch + highlight grid.
+            Column(modifier = Modifier.fillMaxSize()) {
+                grid.forEach { row ->
+                    Row(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                        row.forEach { char ->
+                            GridCell(char, Modifier.weight(1f).fillMaxHeight())
+                        }
+                    }
+                }
+            }
+            // Translucent highlight overlay drawn on top of the tiles.
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val cellSize = size.width / grid[0].size
                 // Draw found word paths
                 foundWordPaths.forEachIndexed { index, (word, path) ->
                     if (path.size >= 1) {
@@ -634,7 +652,7 @@ fun WordGrid(
 
                 // Draw current selection
                 if (selectedCells.size >= 1) {
-                    val selectionColor = Color(0xFF2196F3).copy(alpha = 0.5f) // Blue
+                    val selectionColor = SelectBlue.copy(alpha = 0.55f)
 
                     if (selectedCells.size == 1) {
                         // Single letter - draw a circle
@@ -694,23 +712,6 @@ fun WordGrid(
                     }
                 }
             }
-        ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                grid.forEachIndexed { rowIndex, row ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        row.forEachIndexed { colIndex, char ->
-                            GridCell(char)
-                        }
-                    }
-                }
-            }
         }
     }
 }
@@ -718,34 +719,27 @@ fun WordGrid(
 // Generate different colors for each found word.
 // Plain function (no composition) so it can be used inside DrawScope/drawBehind.
 fun getWordColor(index: Int): Color {
-    val colors = listOf(
-        Color(0xFF4CAF50), // Green
-        Color(0xFFFF9800), // Orange
-        Color(0xFF9C27B0), // Purple
-        Color(0xFFF44336), // Red
-        Color(0xFF00BCD4), // Cyan
-        Color(0xFFFFEB3B), // Yellow
-        Color(0xFF3F51B5), // Indigo
-        Color(0xFFE91E63), // Pink
-    )
-    return colors[index % colors.size]
+    return FoundWordPalette[index % FoundWordPalette.size]
 }
 
 @Composable
-fun GridCell(char: Char) {
+fun GridCell(char: Char, modifier: Modifier = Modifier) {
+    // Fills the cell its parent allotted (via weight) so the visible tile lines up
+    // exactly with the touch + highlight grid. The inset padding shows the board
+    // trough between tiles.
     Box(
-        modifier = Modifier
-            .size(56.dp) // Even larger cells for better visibility
-            .padding(2.dp),
+        modifier = modifier
+            .padding(3.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(GridTile),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = char.uppercase(),
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontSize = 32.sp // Explicit large font size
-            ),
-            fontWeight = FontWeight.Black, // Thickest font weight
-            color = MaterialTheme.colorScheme.onSurface
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = Ink,
+            maxLines = 1
         )
     }
 }

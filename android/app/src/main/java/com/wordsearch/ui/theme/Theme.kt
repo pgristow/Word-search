@@ -7,22 +7,35 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40,
-    background = Background,
-    surface = Surface
+// Calm Modern scheme — used regardless of system dark mode so the game's designed
+// palette stays consistent.
+private val CalmColorScheme = lightColorScheme(
+    primary = BrandIndigo,
+    onPrimary = Color.White,
+    primaryContainer = BrandIndigoContainer,
+    onPrimaryContainer = Ink,
+    secondary = FoundTeal,
+    onSecondary = Color.White,
+    secondaryContainer = TealContainer,
+    onSecondaryContainer = Ink,
+    tertiary = BonusAmber,
+    onTertiary = Color.White,
+    tertiaryContainer = BonusAmberContainer,
+    onTertiaryContainer = Ink,
+    background = AppBackground,
+    onBackground = Ink,
+    surface = AppSurface,
+    onSurface = Ink,
+    surfaceVariant = BoardTrough,
+    onSurfaceVariant = InkSoft,
+    outline = Color(0xFFCFC8BA),
+    error = DangerRed,
+    onError = Color.White,
 )
 
 @Composable
@@ -30,17 +43,14 @@ fun WordSearchTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
+    val colorScheme = CalmColorScheme
 
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = colorScheme.primary.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
         }
     }
 
