@@ -7,8 +7,9 @@
 4. [Production Deployment](#production-deployment)
 5. [Environment Variables](#environment-variables)
 6. [Database Migrations](#database-migrations)
-7. [Monitoring & Health Checks](#monitoring--health-checks)
-8. [Troubleshooting](#troubleshooting)
+7. [Supabase (online leaderboards)](#supabase-online-leaderboards)
+8. [Monitoring & Health Checks](#monitoring--health-checks)
+9. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -262,6 +263,54 @@ docker exec -i wordsearch-postgres psql -U wordsearch_user wordsearch < backup.s
 ```
 
 ---
+
+## Supabase (online leaderboards)
+
+The backend is plain Spring Boot + PostgreSQL, so hosting the database on **Supabase**
+(managed, always-online Postgres) requires **no code changes** — only the
+`SPRING_DATASOURCE_*` environment variables. This is what makes the competitive, league,
+and casual leaderboards reachable online for all clients.
+
+### 1. Create the project
+1. Create a project at <https://supabase.com> (note your DB password).
+2. In the dashboard: **Project Settings → Database → Connection string → JDBC**.
+   Supabase exposes three endpoints:
+   - **Session pooler** (host `...pooler.supabase.com`, port **5432**) — supports prepared
+     statements and migrations. **Use this for this app** (HikariCP + Flyway).
+   - **Transaction pooler** (port **6543**) — highest concurrency, but PgBouncer in
+     transaction mode does **not** support server-side prepared statements; if you must use
+     it, append `?prepareThreshold=0` and run Flyway against the session pooler/direct URL.
+   - **Direct connection** (port 5432, db host) — fine for one-off migrations.
+
+### 2. Set environment variables (production)
+```bash
+# Session pooler URL (recommended). The username embeds the project ref.
+SPRING_DATASOURCE_URL=jdbc:postgresql://aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=require
+SPRING_DATASOURCE_USERNAME=postgres.<your-project-ref>
+SPRING_DATASOURCE_PASSWORD=<your-db-password>
+SPRING_PROFILES_ACTIVE=production
+```
+No change to `application-production.yml` is needed — it already reads these vars and uses
+the `org.postgresql.Driver`.
+
+### 3. Run migrations
+Flyway runs automatically on boot (`spring.flyway.enabled=true`) and will apply `V1..V6`
+to the Supabase database on first start. To run them manually first:
+```bash
+SPRING_DATASOURCE_URL=... SPRING_DATASOURCE_USERNAME=... SPRING_DATASOURCE_PASSWORD=... \
+  gradle -p backend flywayMigrate   # or simply boot the app once
+```
+Verify the leaderboard tables exist (`leaderboard_entries`, `league_cohorts`,
+`league_memberships`) in the Supabase Table Editor.
+
+### 4. (Optional, later) Live leaderboards via Realtime
+For a live-updating board you can enable **Supabase Realtime** on `leaderboard_entries`
+(read-only) with an RLS policy, and subscribe from clients — without moving any game logic
+off Spring Boot. This is a future enhancement, not required for the boards to be online.
+
+> Connection-pool note: Supabase poolers cap connections. Keep HikariCP
+> `maximum-pool-size` modest (the production default of 20 is fine for the session pooler;
+> lower it if you see pool exhaustion).
 
 ## Monitoring & Health Checks
 
