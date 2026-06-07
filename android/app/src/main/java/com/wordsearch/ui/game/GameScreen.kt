@@ -691,28 +691,11 @@ fun GridCell(
     isFound: Boolean = false,
     waveIndex: Int = 0
 ) {
-    // Smoothly fade the tile colour; when a word is found the tiles jump + flip in
-    // sequence down the word so it reads as a wave. Gentle lift + flattened 3D flip so
-    // neighbouring tiles aren't covered, and everything settles back to rest.
-    val animColor by animateColorAsState(tileColor, tween(240), label = "tileColor")
-    val flip = remember { Animatable(0f) }
-    val lift = remember { Animatable(0f) }
-    LaunchedEffect(isFound) {
-        flip.snapTo(0f); lift.snapTo(0f)
-        if (isFound) {
-            delay(waveIndex * 95L) // stagger per position -> wave
-            launch {
-                lift.animateTo(1f, keyframes {
-                    durationMillis = 460
-                    0f at 0
-                    1f at 180
-                    0f at 460
-                })
-            }
-            flip.animateTo(360f, tween(700, easing = FastOutSlowInEasing))
-            flip.snapTo(0f) // rest exactly where it started
-        }
-    }
+    // Highlight is a pure colour change only — the tile NEVER moves. Earlier versions
+    // lifted/flipped the tile on found, which knocked it out of grid alignment for the
+    // duration of the animation and read as "tiles not aligned". A gentle colour fade keeps
+    // the grid rock-steady. (waveIndex retained for API compatibility; intentionally unused.)
+    val animColor by animateColorAsState(tileColor, tween(220), label = "tileColor")
     // Fills the exact cell its parent allotted so the visible tile lines up 1:1 with the
     // touch + line grid. A hairline 1dp inset only separates neighbours visually without
     // pulling the highlight away from the cell the user actually touched. Font scales with
@@ -723,14 +706,7 @@ fun GridCell(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(1.dp)
-                .graphicsLayer {
-                    rotationY = flip.value
-                    translationY = -lift.value * 9.dp.toPx()
-                    shadowElevation = lift.value * 5.dp.toPx()
-                    cameraDistance = 24f * density // flatter perspective so flip stays in-bounds
-                    shape = RoundedCornerShape(10.dp)
-                    clip = true
-                }
+                .clip(RoundedCornerShape(10.dp))
                 .background(animColor),
             contentAlignment = Alignment.Center
         ) {
