@@ -20,7 +20,8 @@ fun ModeSelectionScreen(
     categoryId: String,
     categoryName: String,
     onModeSelected: (GameMode) -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToSettings: () -> Unit = {}
 ) {
     Scaffold(
         topBar = {
@@ -29,6 +30,11 @@ fun ModeSelectionScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -64,34 +70,20 @@ fun ModeSelectionScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Classic Mode Card
+            // Competitive (classic)
             ModeCard(
-                title = "Classic Mode",
+                title = "Competitive",
                 icon = Icons.Default.Timer,
-                description = "Competitive gameplay with timers and combos",
-                features = listOf(
-                    "Timed challenges",
-                    "Combo multipliers (2x-4x)",
-                    "Speed bonuses",
-                    "Global leaderboards",
-                    "Boss levels"
-                ),
+                description = "Timers, combos & leaderboards",
                 accentColor = MaterialTheme.colorScheme.primary,
                 onClick = { onModeSelected(GameMode.CLASSIC) }
             )
 
-            // Casual Mode Card
+            // Casual
             ModeCard(
-                title = "Casual Mode",
+                title = "Casual",
                 icon = Icons.Default.SelfImprovement,
-                description = "Relaxed gameplay without pressure",
-                features = listOf(
-                    "No timers",
-                    "No disappearing words",
-                    "Simple scoring",
-                    "Save and resume anytime",
-                    "Stress-free experience"
-                ),
+                description = "Relaxed — no timers, lo-fi music",
                 accentColor = MaterialTheme.colorScheme.tertiary,
                 onClick = { onModeSelected(GameMode.CASUAL) }
             )
@@ -105,90 +97,47 @@ private fun ModeCard(
     title: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     description: String,
-    features: List<String>,
     accentColor: androidx.compose.ui.graphics.Color,
     onClick: () -> Unit
 ) {
     Card(
         onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 250.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 4.dp,
-            pressedElevation = 8.dp
-        )
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp, pressedElevation = 8.dp)
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.Start,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Header with icon and title
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = accentColor,
-                    modifier = Modifier.size(48.dp)
-                )
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = accentColor,
+                modifier = Modifier.size(34.dp)
+            )
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = accentColor
                 )
-            }
-
-            // Description
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            // Features list
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                features.forEach { feature ->
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = accentColor,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            text = feature,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-            }
-
-            // Play button
-            Button(
-                onClick = onClick,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = accentColor
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            ) {
-                Text("Play $title")
             }
+            Icon(
+                imageVector = Icons.Default.PlayArrow,
+                contentDescription = null,
+                tint = accentColor,
+                modifier = Modifier.size(28.dp)
+            )
         }
     }
 }

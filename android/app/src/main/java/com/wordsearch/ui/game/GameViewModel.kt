@@ -7,6 +7,7 @@ import com.wordsearch.data.model.GameSession
 import com.wordsearch.data.model.SubmitWordRequest
 import com.wordsearch.data.model.WordSubmissionResponse
 import com.wordsearch.data.repository.GameRepository
+import com.wordsearch.data.audio.SoundManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,7 +19,8 @@ import kotlin.math.abs
 
 @HiltViewModel
 class GameViewModel @Inject constructor(
-    private val gameRepository: GameRepository
+    private val gameRepository: GameRepository,
+    private val soundManager: SoundManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<GameUiState>(GameUiState.Loading)
@@ -78,6 +80,9 @@ class GameViewModel @Inject constructor(
                     _foundWords.value = session.foundWords.map { it.lowercase() }.toSet()
                     _bonusWords.value = emptySet()
                     _lastWordResult.value = null
+
+                    // Relaxing background music for casual mode only.
+                    if (gameMode.equals("CASUAL", ignoreCase = true)) soundManager.startCasualMusic()
 
                     _uiState.value = GameUiState.Playing(session)
                 } else {
@@ -236,11 +241,13 @@ class GameViewModel @Inject constructor(
     private fun showPopup(word: String, isBonus: Boolean, score: Int?, coins: Long) {
         popupCounter += 1
         _wordPopup.value = WordPopup(popupCounter, word.uppercase(), isBonus, score, coins, isError = false)
+        soundManager.playCorrect()
     }
 
     private fun showErrorPopup(message: String) {
         popupCounter += 1
         _wordPopup.value = WordPopup(popupCounter, message, isBonus = false, score = null, coins = 0, isError = true)
+        soundManager.playIncorrect()
     }
 
     /** Client-side mirror of the server ScoringService, for instant per-word feedback. */
@@ -358,6 +365,7 @@ class GameViewModel @Inject constructor(
 
     fun endGame() {
         val session = currentSession ?: return
+        soundManager.stopMusic()
 
         viewModelScope.launch {
             try {
@@ -381,6 +389,7 @@ class GameViewModel @Inject constructor(
 
     fun saveCasualProgress() {
         val session = currentSession ?: return
+        soundManager.stopMusic()
 
         viewModelScope.launch {
             try {
@@ -402,6 +411,11 @@ class GameViewModel @Inject constructor(
                 _uiState.value = GameUiState.Error(e.message ?: "An error occurred")
             }
         }
+    }
+
+    override fun onCleared() {
+        soundManager.stopMusic()
+        super.onCleared()
     }
 }
 
