@@ -27,6 +27,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -153,7 +155,11 @@ fun GameScreen(
             )
         },
         bottomBar = {
-            com.wordsearch.ui.common.AppBottomBar(current = null, onSelect = onBottomNav)
+            // Only while actually playing/loading — the end screens need the full height for
+            // their Play Again / Main Menu buttons.
+            if (uiState is GameUiState.Playing || uiState is GameUiState.Loading) {
+                com.wordsearch.ui.common.AppBottomBar(current = null, onSelect = onBottomNav)
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
@@ -1050,108 +1056,35 @@ fun GameOverScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Icon(
-            imageVector = Icons.Default.Star,
-            contentDescription = null,
-            modifier = Modifier.size(80.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = "Game Complete!",
-            style = MaterialTheme.typography.displaySmall,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
-            )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                GameOverStat("This Game", finalScore.toString())
-                Spacer(modifier = Modifier.height(16.dp))
-                GameOverStat("Words Found", wordsFound.toString())
-                Spacer(modifier = Modifier.height(16.dp))
-                GameOverStat("Time", "${sessionDuration}s")
+            Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(30.dp), tint = MaterialTheme.colorScheme.primary)
+            Text("Game Complete!", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        }
+
+        EndHeroScore(finalScore, MaterialTheme.colorScheme.primary)
+
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            EndStatChip(Modifier.weight(1f), Icons.Default.Check, wordsFound.toString(), "words")
+            EndStatChip(Modifier.weight(1f), Icons.Default.Timer, "${sessionDuration}s", "time")
+            if (isCasual) EndStatChip(Modifier.weight(1f), Icons.Default.TrendingUp, casualWeekly.toString(), "weekly")
+        }
+        if (isCasual && casualBest > 0) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                EndStatChip(Modifier.weight(1f), Icons.Default.EmojiEvents, casualBest.toString(), "best run")
+                EndStatChip(Modifier.weight(1f), Icons.Default.GridView, casualGames.toString(), "games")
             }
         }
 
-        if (isCasual) {
-            Spacer(modifier = Modifier.height(16.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        "Casual Stats",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    GameOverStat("This Week", casualWeekly.toString())
-                    Spacer(modifier = Modifier.height(16.dp))
-                    GameOverStat("Best Run", casualBest.toString())
-                    Spacer(modifier = Modifier.height(16.dp))
-                    GameOverStat("Games Played", casualGames.toString())
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Button(
-            onClick = onPlayAgain,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Play Again")
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        OutlinedButton(
-            onClick = onMainMenu,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(Icons.Default.Home, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Main Menu")
-        }
-    }
-}
-
-@Composable
-fun GameOverStat(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = value,
-            style = MaterialTheme.typography.displayMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onPrimaryContainer
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onPrimaryContainer
-        )
+        Spacer(Modifier.height(4.dp))
+        EndButtons(onPlayAgain, onMainMenu, MaterialTheme.colorScheme.primary, "Play Again")
     }
 }
 
@@ -1166,92 +1099,92 @@ fun CasualSavedScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Icon(
-            imageVector = Icons.Default.Save,
-            contentDescription = null,
-            modifier = Modifier.size(80.dp),
-            tint = MaterialTheme.colorScheme.tertiary
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(30.dp), tint = MaterialTheme.colorScheme.tertiary)
+            Text("Progress Saved!", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        }
         Text(
-            text = "Progress Saved!",
-            style = MaterialTheme.typography.displaySmall,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Take a break and come back anytime to continue",
-            style = MaterialTheme.typography.bodyLarge,
+            "Take a break and come back anytime",
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(32.dp))
+        EndHeroScore(finalScore, MaterialTheme.colorScheme.tertiary)
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer
-            )
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                CasualSavedStat("Current Score", finalScore.toString())
-                Spacer(modifier = Modifier.height(16.dp))
-                CasualSavedStat("Words Found", wordsFound.toString())
-                Spacer(modifier = Modifier.height(16.dp))
-                CasualSavedStat("Time Played", "${sessionDuration}m")
-            }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            EndStatChip(Modifier.weight(1f), Icons.Default.Check, wordsFound.toString(), "words", tertiary = true)
+            EndStatChip(Modifier.weight(1f), Icons.Default.Timer, "${sessionDuration}m", "time", tertiary = true)
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(Modifier.height(4.dp))
+        EndButtons(onPlayAgain, onMainMenu, MaterialTheme.colorScheme.tertiary, "Keep Playing")
+    }
+}
 
-        Button(
-            onClick = onPlayAgain,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.tertiary
-            )
+@Composable
+private fun EndHeroScore(score: Int, accent: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = score.toString(),
+            style = MaterialTheme.typography.displaySmall,
+            fontWeight = FontWeight.Black,
+            color = accent
+        )
+        Text("points", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun EndStatChip(
+    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    value: String,
+    label: String,
+    tertiary: Boolean = false
+) {
+    val container = if (tertiary) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.secondaryContainer
+    val onContainer = if (tertiary) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = container), shape = RoundedCornerShape(10.dp)) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Play Again")
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        OutlinedButton(
-            onClick = onMainMenu,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(Icons.Default.Home, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Main Menu")
+            Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = onContainer)
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = onContainer)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = onContainer.copy(alpha = 0.7f))
         }
     }
 }
 
 @Composable
-fun CasualSavedStat(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = value,
-            style = MaterialTheme.typography.displayMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onTertiaryContainer
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onTertiaryContainer
-        )
+private fun EndButtons(onPlayAgain: () -> Unit, onMainMenu: () -> Unit, accent: Color, playLabel: String) {
+    Button(
+        onClick = onPlayAgain,
+        modifier = Modifier.fillMaxWidth().height(52.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = accent)
+    ) {
+        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(playLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    }
+    OutlinedButton(
+        onClick = onMainMenu,
+        modifier = Modifier.fillMaxWidth().height(52.dp),
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Icon(Icons.Default.Home, contentDescription = null, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Main Menu", style = MaterialTheme.typography.titleMedium)
     }
 }
