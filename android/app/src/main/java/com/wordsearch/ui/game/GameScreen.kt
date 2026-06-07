@@ -4,8 +4,11 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -678,9 +681,68 @@ fun WordGrid(
                     }
                 }
             }
+
+            // 3) Paint splats: when a new word is found, fling a handful of colourful blobs
+            //    onto random tiles that bloom then fade — a playful "paint splash" over the
+            //    board. Purely an overlay; it never moves any tile.
+            val scope = rememberCoroutineScope()
+            val splats = remember { mutableStateListOf<Splat>() }
+            var lastFoundCount by remember { mutableStateOf(foundWordPaths.size) }
+            LaunchedEffect(foundWordPaths.size) {
+                if (foundWordPaths.size > lastFoundCount) {
+                    val color = getWordColor(foundWordPaths.size - 1)
+                    repeat(9) {
+                        val r = kotlin.random.Random.nextInt(rows)
+                        val c = kotlin.random.Random.nextInt(cols)
+                        val s = Splat(
+                            x = (c + 0.5f) * cellPx,
+                            y = (r + 0.5f) * cellPx,
+                            color = color,
+                            anim = Animatable(0f),
+                            seed = kotlin.random.Random.nextFloat()
+                        )
+                        splats.add(s)
+                        scope.launch {
+                            s.anim.animateTo(1f, tween(640, easing = FastOutSlowInEasing))
+                            splats.remove(s)
+                        }
+                    }
+                }
+                lastFoundCount = foundWordPaths.size
+            }
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                splats.forEach { s ->
+                    val p = s.anim.value
+                    val grow = if (p < 0.25f) p / 0.25f else 1f          // quick bloom
+                    val alpha = (1f - p) * 0.8f                          // then fade
+                    val blob = cellPx * 0.40f * grow
+                    drawCircle(s.color.copy(alpha = alpha), radius = blob, center = Offset(s.x, s.y))
+                    // a few droplets flung around the main blob for a splat feel
+                    for (k in 0 until 3) {
+                        val ang = s.seed * 6.2832f + k * 2.094f
+                        val dist = cellPx * 0.55f * grow
+                        val dx = kotlin.math.cos(ang) * dist
+                        val dy = kotlin.math.sin(ang) * dist
+                        drawCircle(
+                            s.color.copy(alpha = alpha * 0.8f),
+                            radius = cellPx * 0.12f * grow,
+                            center = Offset(s.x + dx, s.y + dy)
+                        )
+                    }
+                }
+            }
         }
     }
 }
+
+/** A transient paint blob flung onto the board when a word is found. */
+private class Splat(
+    val x: Float,
+    val y: Float,
+    val color: Color,
+    val anim: Animatable<Float, AnimationVector1D>,
+    val seed: Float
+)
 
 // Generate different colors for each found word.
 // Plain function (no composition) so it can be used inside DrawScope/drawBehind.
@@ -697,11 +759,19 @@ fun GridCell(
     isFound: Boolean = false,
     waveIndex: Int = 0
 ) {
-    // Highlight is a pure colour change only — the tile NEVER moves. Earlier versions
-    // lifted/flipped the tile on found, which knocked it out of grid alignment for the
-    // duration of the animation and read as "tiles not aligned". A gentle colour fade keeps
-    // the grid rock-steady. (waveIndex retained for API compatibility; intentionally unused.)
+    // Highlight is a colour change plus a centred SCALE pop — the tile never translates or
+    // rotates, so it can't leave its grid cell (that was the old misalignment bug). The pop
+    // springs up from small with a bounce when the word is found, then rests at 1.0.
     val animColor by animateColorAsState(tileColor, tween(220), label = "tileColor")
+    val pop = remember { Animatable(1f) }
+    LaunchedEffect(isFound) {
+        if (isFound) {
+            pop.snapTo(0.62f)
+            pop.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow))
+        } else {
+            pop.snapTo(1f)
+        }
+    }
     // Fills the exact cell its parent allotted so the visible tile lines up 1:1 with the
     // touch + line grid. A hairline 1dp inset only separates neighbours visually without
     // pulling the highlight away from the cell the user actually touched. Font scales with
@@ -712,6 +782,7 @@ fun GridCell(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(1.dp)
+                .graphicsLayer { scaleX = pop.value; scaleY = pop.value } // centred → no drift
                 .clip(RoundedCornerShape(10.dp))
                 .background(animColor),
             contentAlignment = Alignment.Center
