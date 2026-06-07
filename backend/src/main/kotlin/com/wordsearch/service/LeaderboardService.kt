@@ -14,10 +14,38 @@ class LeaderboardService(
 
     companion object {
         const val BOARD_GLOBAL_CLASSIC = "GLOBAL_CLASSIC"
+        const val BOARD_GLOBAL_WEEKLY = "GLOBAL_WEEKLY"
         const val BOARD_LEAGUE_WEEKLY = "LEAGUE_WEEKLY"
         const val BOARD_CASUAL_BEST = "CASUAL_BEST"
         const val BOARD_CASUAL_WEEKLY = "CASUAL_WEEKLY"
         const val PERIOD_ALL_TIME = "ALL_TIME"
+    }
+
+    /** ISO week key for today, e.g. "2026-W23" — the period for the weekly board. */
+    fun currentWeekKey(): String {
+        val date = java.time.LocalDate.now()
+        val week = date.get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR)
+        val year = date.get(java.time.temporal.IsoFields.WEEK_BASED_YEAR)
+        return "%04d-W%02d".format(year, week)
+    }
+
+    /** Adds [delta] to a user's row on a board/period, creating it if absent. */
+    @Transactional
+    fun addScore(userId: UUID, username: String, boardType: String, periodKey: String, delta: Long): LeaderboardEntry {
+        val existing = leaderboardEntryRepository
+            .findByUserIdAndBoardTypeAndPeriodKey(userId, boardType, periodKey)
+        val entry = existing?.copy(
+            username = username,
+            score = existing.score + delta,
+            updatedAt = LocalDateTime.now()
+        ) ?: LeaderboardEntry(
+            userId = userId,
+            username = username,
+            boardType = boardType,
+            periodKey = periodKey,
+            score = delta
+        )
+        return leaderboardEntryRepository.save(entry)
     }
 
     /** Inserts or updates the leaderboard row for the (user, board, period). */

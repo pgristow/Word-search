@@ -13,9 +13,14 @@ val AppSurface = Color(0xFFFFFFFF)    // cards
 val BoardTrough = Color(0xFFE9E4D8)   // board behind the letter tiles
 val GridTile = Color(0xFFFFFFFF)      // a single letter tile
 
-// Brand / accents
-val BrandIndigo = Color(0xFF4C63B6)
-val BrandIndigoContainer = Color(0xFFDFE3F7)
+// Brand / accents — the WordPop purple, matching the landing + loading screens.
+val BrandPurple = Color(0xFF6A5AE0)            // primary (gradient top)
+val BrandPurpleLight = Color(0xFF8E7BEF)       // gradient bottom
+val BrandPurpleContainer = Color(0xFFE7E2FB)   // light purple banner/container
+val BrandPurpleInk = Color(0xFF2B2150)         // deep purple text on containers
+// Legacy indigo kept for any direct references.
+val BrandIndigo = Color(0xFF6A5AE0)
+val BrandIndigoContainer = Color(0xFFE7E2FB)
 val SelectBlue = Color(0xFF5B8DEF)    // active selection sweep
 val FoundTeal = Color(0xFF3FB59A)     // found target word
 val TealContainer = Color(0xFFCDEFE7)

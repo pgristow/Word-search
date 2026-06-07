@@ -14,8 +14,8 @@ import timber.log.Timber
 import javax.inject.Inject
 
 enum class LeaderboardTab(val boardType: String, val label: String) {
-    GLOBAL("GLOBAL_CLASSIC", "Global"),
-    CASUAL("CASUAL_BEST", "Casual")
+    ALL_TIME("GLOBAL_CLASSIC", "Highest Ever"),
+    WEEKLY("GLOBAL_WEEKLY", "This Week")
 }
 
 @HiltViewModel
@@ -27,7 +27,7 @@ class LeaderboardViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<LeaderboardUiState>(LeaderboardUiState.Loading)
     val uiState: StateFlow<LeaderboardUiState> = _uiState.asStateFlow()
 
-    private val _selectedTab = MutableStateFlow(LeaderboardTab.GLOBAL)
+    private val _selectedTab = MutableStateFlow(LeaderboardTab.ALL_TIME)
     val selectedTab: StateFlow<LeaderboardTab> = _selectedTab.asStateFlow()
 
     val currentUserId: String? = tokenManager.getUserId()

@@ -15,10 +15,10 @@ import androidx.core.view.WindowCompat
 // Calm Modern scheme — used regardless of system dark mode so the game's designed
 // palette stays consistent.
 private val CalmColorScheme = lightColorScheme(
-    primary = BrandIndigo,
+    primary = BrandPurple,
     onPrimary = Color.White,
-    primaryContainer = BrandIndigoContainer,
-    onPrimaryContainer = Ink,
+    primaryContainer = BrandPurpleContainer,
+    onPrimaryContainer = BrandPurpleInk,
     secondary = FoundTeal,
     onSecondary = Color.White,
     secondaryContainer = TealContainer,
@@ -40,10 +40,10 @@ private val CalmColorScheme = lightColorScheme(
 
 // Calm Modern — dark variant. Follows the system dark-mode setting.
 private val CalmDarkScheme = darkColorScheme(
-    primary = Color(0xFF9AB0FF),
-    onPrimary = Color(0xFF1A2240),
-    primaryContainer = Color(0xFF33406E),
-    onPrimaryContainer = Color(0xFFDDE2F7),
+    primary = Color(0xFFB6A9FF),
+    onPrimary = Color(0xFF241A52),
+    primaryContainer = Color(0xFF4A3F9E),
+    onPrimaryContainer = Color(0xFFE7E2FB),
     secondary = Color(0xFF5FD0B6),
     onSecondary = Color(0xFF06281F),
     secondaryContainer = Color(0xFF1E4A40),

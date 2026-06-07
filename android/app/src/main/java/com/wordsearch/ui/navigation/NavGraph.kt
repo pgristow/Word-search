@@ -25,9 +25,9 @@ sealed class Screen(val route: String) {
     object Register : Screen("register")
     object Landing : Screen("landing")
     object Profile : Screen("profile")
-    object Categories : Screen("categories?mode={mode}") {
-        fun createRoute(mode: String? = null) =
-            if (mode != null) "categories?mode=$mode" else "categories"
+    object Categories : Screen("categories/{mode}") {
+        // mode is "CASUAL", "COMPETITIVE", or "NONE" (came from bottom nav -> still pick a mode)
+        fun createRoute(mode: String = "NONE") = "categories/$mode"
     }
     object ModeSelection : Screen("mode_selection/{categoryId}/{categoryName}") {
         fun createRoute(categoryId: String, categoryName: String) = "mode_selection/$categoryId/$categoryName"
@@ -113,10 +113,11 @@ fun NavGraph(
         composable(
             route = Screen.Categories.route,
             arguments = listOf(navArgument("mode") {
-                type = NavType.StringType; nullable = true; defaultValue = null
+                type = NavType.StringType; defaultValue = "NONE"
             })
         ) { backStackEntry ->
-            val presetMode = backStackEntry.arguments?.getString("mode")
+            val modeArg = backStackEntry.arguments?.getString("mode") ?: "NONE"
+            val presetMode = if (modeArg == "NONE") null else modeArg
             CategoriesScreen(
                 onNavigateToGame = { categoryId, categoryName ->
                     if (presetMode != null) {
@@ -203,8 +204,8 @@ fun NavGraph(
                     navController.popBackStack()
                 },
                 onGameComplete = {
-                    // Main Menu: return all the way to the categories home.
-                    navController.popBackStack(Screen.Categories.route, inclusive = false)
+                    // Main Menu: return all the way to the landing home.
+                    navController.popBackStack(Screen.Landing.route, inclusive = false)
                 },
                 onBottomNav = onBottomNav
             )

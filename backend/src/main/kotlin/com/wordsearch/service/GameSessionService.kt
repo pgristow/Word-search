@@ -247,12 +247,21 @@ class GameSessionService(
         // reflects this round.
         if (affectsProgression) {
             userRepository.findById(userId).orElse(null)?.let { user ->
+                // All-time "Highest Ever" board = lifetime total.
                 leaderboardService.upsert(
                     userId = userId,
                     username = user.username,
                     boardType = LeaderboardService.BOARD_GLOBAL_CLASSIC,
                     periodKey = LeaderboardService.PERIOD_ALL_TIME,
                     score = updatedProgress.totalScore
+                )
+                // "This Week" board = points earned this ISO week (resets via the week key).
+                leaderboardService.addScore(
+                    userId = userId,
+                    username = user.username,
+                    boardType = LeaderboardService.BOARD_GLOBAL_WEEKLY,
+                    periodKey = leaderboardService.currentWeekKey(),
+                    delta = score.toLong()
                 )
             }
             leagueService.recordWeeklyScore(userId, score.toLong())
