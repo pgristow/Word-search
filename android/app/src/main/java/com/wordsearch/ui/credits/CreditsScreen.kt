@@ -43,6 +43,30 @@ val ATTRIBUTIONS: List<Attribution> = listOf(
         licenseUrl = "http://creativecommons.org/licenses/by/4.0/",
         sourceUrl = "https://incompetech.com"
     ),
+    Attribution(
+        title = "Fox Tale Waltz Part 1 Instrumental",
+        author = "Kevin MacLeod",
+        source = "incompetech.com",
+        license = "Creative Commons: By Attribution 4.0",
+        licenseUrl = "http://creativecommons.org/licenses/by/4.0/",
+        sourceUrl = "https://incompetech.com"
+    ),
+    Attribution(
+        title = "Half Mystery",
+        author = "Kevin MacLeod",
+        source = "incompetech.com",
+        license = "Creative Commons: By Attribution 4.0",
+        licenseUrl = "http://creativecommons.org/licenses/by/4.0/",
+        sourceUrl = "https://incompetech.com"
+    ),
+    Attribution(
+        title = "Whimsy Groove",
+        author = "Kevin MacLeod",
+        source = "incompetech.com",
+        license = "Creative Commons: By Attribution 4.0",
+        licenseUrl = "http://creativecommons.org/licenses/by/4.0/",
+        sourceUrl = "https://incompetech.com"
+    ),
 )
 
 @OptIn(ExperimentalMaterial3Api::class)

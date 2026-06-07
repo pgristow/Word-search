@@ -38,15 +38,17 @@ class SoundManager @Inject constructor(
     private var music: MediaPlayer? = null
     private var preview: MediaPlayer? = null
 
-    /** Selectable lo-fi tracks: id -> (display name, raw resource).
-     *  Pluck/Beat/Bright are rhythmic with short note envelopes (no drawn-out pads). */
+    /** Selectable music tracks: id -> (display name, raw resource).
+     *  The four feature tracks are by Kevin MacLeod (incompetech.com), CC BY 4.0 —
+     *  see the in-app Credits screen. Pluck/Beat/Bright are short synthesized loops. */
     val tracks: List<Triple<String, String, Int>> = listOf(
+        Triple("journey_ascend", "Journey To Ascend", R.raw.journey_ascend),
+        Triple("whimsy_groove", "Whimsy Groove", R.raw.whimsy_groove),
+        Triple("foxtale_waltz", "Fox Tale Waltz", R.raw.foxtale_waltz),
+        Triple("half_mystery", "Half Mystery", R.raw.half_mystery),
         Triple("lofi_pluck", "Pluck", R.raw.lofi_pluck),
         Triple("lofi_beat", "Beat", R.raw.lofi_beat),
         Triple("lofi_bright", "Bright", R.raw.lofi_bright),
-        Triple("lofi_chill", "Chill", R.raw.lofi_chill),
-        Triple("lofi_dreamy", "Dreamy", R.raw.lofi_dreamy),
-        Triple("lofi_mellow", "Mellow", R.raw.lofi_mellow),
     )
 
     var sfxEnabled: Boolean
@@ -61,7 +63,7 @@ class SoundManager @Inject constructor(
         }
 
     var musicTrack: String
-        get() = prefs.getString("track", "lofi_pluck") ?: "lofi_pluck"
+        get() = prefs.getString("track", "journey_ascend") ?: "journey_ascend"
         set(v) = prefs.edit().putString("track", v).apply()
 
     /** Preferred default mode ("CLASSIC"/"CASUAL"), or null to always ask. */
@@ -69,7 +71,7 @@ class SoundManager @Inject constructor(
         get() = prefs.getString("mode", null)
         set(v) = prefs.edit().putString("mode", v).apply()
 
-    private fun resFor(id: String) = tracks.firstOrNull { it.first == id }?.third ?: R.raw.lofi_pluck
+    private fun resFor(id: String) = tracks.firstOrNull { it.first == id }?.third ?: R.raw.journey_ascend
 
     fun playCorrect() { if (sfxEnabled) soundPool.play(correctId, 0.9f, 0.9f, 1, 0, 1f) }
     fun playIncorrect() { if (sfxEnabled) soundPool.play(incorrectId, 1f, 1f, 1, 0, 1f) }
