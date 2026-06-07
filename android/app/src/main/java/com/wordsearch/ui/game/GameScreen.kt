@@ -93,7 +93,21 @@ fun GameScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Word Search") },
+                title = {
+                    val s = (uiState as? GameUiState.Playing)?.session
+                    if (s != null) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(20.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TopStat("Score", s.currentScore.toString())
+                            TopStat("Words", "${s.wordsFound}/${s.targetWordCount}")
+                            if (!isCasualMode) TopStat("Combo", "${s.currentCombo}x")
+                        }
+                    } else {
+                        Text("Word Search")
+                    }
+                },
                 actions = {
                     // Hint button — visible while playing
                     if (uiState is GameUiState.Playing) {
@@ -222,12 +236,9 @@ fun GamePlayingContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        // Score and combo
-        GameStatsRow(session, isCasualMode, bonusWords.size)
-
-        Spacer(modifier = Modifier.height(12.dp))
+        // (Score / words / combo live in the top bar now.)
 
         // Word list at the top (found words strike through in place, so it never resizes
         // and the grid below stays put).
@@ -287,7 +298,11 @@ fun BoxScope.WordFoundPopup(popup: com.wordsearch.ui.game.WordPopup?, onDone: ()
                 scaleX = scale.value; scaleY = scale.value; this.alpha = alpha.value
             },
         colors = CardDefaults.cardColors(
-            containerColor = if (popup.isBonus) BonusGoldContainer else MaterialTheme.colorScheme.primaryContainer
+            containerColor = when {
+                popup.isError -> MaterialTheme.colorScheme.errorContainer
+                popup.isBonus -> BonusGoldContainer
+                else -> MaterialTheme.colorScheme.primaryContainer
+            }
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
     ) {
@@ -295,19 +310,19 @@ fun BoxScope.WordFoundPopup(popup: com.wordsearch.ui.game.WordPopup?, onDone: ()
             modifier = Modifier.padding(horizontal = 28.dp, vertical = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            val accent = when {
+                popup.isError -> MaterialTheme.colorScheme.error
+                popup.isBonus -> BonusGold
+                else -> MaterialTheme.colorScheme.primary
+            }
             if (popup.isBonus) {
-                Text(
-                    "BONUS!",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Black,
-                    color = BonusGold
-                )
+                Text("BONUS!", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = accent)
             }
             Text(
                 popup.word,
-                style = MaterialTheme.typography.headlineMedium,
+                style = if (popup.isError) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Black,
-                color = if (popup.isBonus) BonusGold else MaterialTheme.colorScheme.primary
+                color = accent
             )
             popup.score?.let { s ->
                 Text(
@@ -416,6 +431,22 @@ private fun BonusWordsList(bonusWords: Set<String>) {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun TopStat(label: String, value: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = "$label ",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -534,7 +565,7 @@ fun WordGrid(
 
     BoxWithConstraints(
         modifier = modifier
-            .fillMaxWidth()
+            .fillMaxSize()
             .aspectRatio(1f)
             .onGloballyPositioned { coordinates ->
                 gridSize = Offset(
@@ -592,7 +623,7 @@ fun WordGrid(
             //    see what's linked. Capped at the first/last tile centres (no bleed).
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val cellSize = size.width / grid[0].size
-                val stroke = cellSize * 0.60f
+                val stroke = cellSize * 0.46f
                 fun center(cell: Pair<Int, Int>) =
                     Offset((cell.second + 0.5f) * cellSize, (cell.first + 0.5f) * cellSize)
                 foundWordPaths.forEachIndexed { index, (_, path) ->

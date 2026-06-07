@@ -79,7 +79,7 @@ class GameBoardGenerator(
     fun getDifficultyConfig(level: Int): DifficultyConfig {
         return when {
             level in 1..5 -> DifficultyConfig(
-                gridSize = 8,
+                gridSize = 10,
                 allowedDirections = listOf(Direction.HORIZONTAL, Direction.VERTICAL),
                 reverseWordProbability = 0f,
                 minWordLength = 3,
@@ -87,7 +87,7 @@ class GameBoardGenerator(
                 distractorLetters = "ETAOINSHRDLU"
             )
             level in 6..10 -> DifficultyConfig(
-                gridSize = 9,
+                gridSize = 11,
                 allowedDirections = listOf(
                     Direction.HORIZONTAL,
                     Direction.VERTICAL,
@@ -99,7 +99,7 @@ class GameBoardGenerator(
                 distractorLetters = "ETAOINSHRDLUCMFWYPVBGKJQXZ"
             )
             level in 11..15 -> DifficultyConfig(
-                gridSize = 9,
+                gridSize = 11,
                 allowedDirections = Direction.values().toList(),
                 reverseWordProbability = 0.3f,
                 minWordLength = 4,
@@ -107,7 +107,7 @@ class GameBoardGenerator(
                 distractorLetters = "ETAOINSHRDLUCMFWYPVBGKJQXZ"
             )
             level in 16..20 -> DifficultyConfig(
-                gridSize = 10,
+                gridSize = 12,
                 allowedDirections = Direction.values().toList(),
                 reverseWordProbability = 0.5f,
                 minWordLength = 4,
@@ -115,7 +115,7 @@ class GameBoardGenerator(
                 distractorLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             )
             level in 21..30 -> DifficultyConfig(
-                gridSize = 10,
+                gridSize = 12,
                 allowedDirections = Direction.values().toList(),
                 reverseWordProbability = 0.6f,
                 minWordLength = 4,
@@ -123,7 +123,7 @@ class GameBoardGenerator(
                 distractorLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             )
             level in 31..40 -> DifficultyConfig(
-                gridSize = 10,
+                gridSize = 12,
                 allowedDirections = Direction.values().toList(),
                 reverseWordProbability = 0.7f,
                 minWordLength = 5,
@@ -131,7 +131,7 @@ class GameBoardGenerator(
                 distractorLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             )
             else -> DifficultyConfig(
-                gridSize = 10,
+                gridSize = 12,
                 allowedDirections = Direction.values().toList(),
                 reverseWordProbability = 0.8f,
                 minWordLength = 5,
@@ -146,7 +146,7 @@ class GameBoardGenerator(
      * casual always offers a relaxed baseline (no reversals, no diagonals).
      */
     fun getCasualConfig(): DifficultyConfig = DifficultyConfig(
-        gridSize = 8,
+        gridSize = 10,
         allowedDirections = listOf(Direction.HORIZONTAL, Direction.VERTICAL),
         reverseWordProbability = 0f,
         minWordLength = 3,

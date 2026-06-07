@@ -30,9 +30,9 @@ class GameBoardGeneratorTest {
         val words = listOf("CAT", "DOG", "BIRD", "FISH", "LION", "BEAR", "WOLF", "DEER")
         val gameBoard = gameBoardGenerator.generateBoard(1, words, "Animals")
 
-        assertEquals(8, gameBoard.gridSize, "Level 1 should have 8x8 grid")
-        assertEquals(8, gameBoard.grid.size, "Grid should have 8 rows")
-        assertEquals(8, gameBoard.grid[0].size, "Grid should have 8 columns")
+        assertEquals(10, gameBoard.gridSize, "Level 1 should have 10x10 grid")
+        assertEquals(10, gameBoard.grid.size, "Grid should have 10 rows")
+        assertEquals(10, gameBoard.grid[0].size, "Grid should have 10 columns")
     }
 
     @Test
@@ -40,8 +40,8 @@ class GameBoardGeneratorTest {
         val words = listOf("CAT", "DOG", "BIRD", "FISH", "LION", "BEAR", "WOLF", "DEER")
         val gameBoard = gameBoardGenerator.generateBoard(15, words, "Animals")
 
-        assertEquals(9, gameBoard.gridSize, "Level 15 should have 9x9 grid")
-        assertEquals(9, gameBoard.grid.size, "Grid should have 9 rows")
+        assertEquals(11, gameBoard.gridSize, "Level 15 should have 11x11 grid")
+        assertEquals(11, gameBoard.grid.size, "Grid should have 11 rows")
     }
 
     @Test
@@ -49,7 +49,7 @@ class GameBoardGeneratorTest {
         val words = listOf("CAT", "DOG", "BIRD", "FISH", "LION", "BEAR", "WOLF", "DEER")
         val gameBoard = gameBoardGenerator.generateBoard(30, words, "Animals")
 
-        assertEquals(10, gameBoard.gridSize, "Level 30 should have 10x10 grid")
+        assertEquals(12, gameBoard.gridSize, "Level 30 should have 12x12 grid")
     }
 
     @Test
@@ -65,7 +65,7 @@ class GameBoardGeneratorTest {
     fun `test getDifficultyConfig returns correct config for level 1-5`() {
         val config = gameBoardGenerator.getDifficultyConfig(3)
 
-        assertEquals(8, config.gridSize)
+        assertEquals(10, config.gridSize)
         assertEquals(0f, config.reverseWordProbability)
         assertEquals(3, config.minWordLength)
         assertEquals(5, config.targetWordCount)
@@ -75,7 +75,7 @@ class GameBoardGeneratorTest {
     fun `test getDifficultyConfig returns correct config for level 11-15`() {
         val config = gameBoardGenerator.getDifficultyConfig(12)
 
-        assertEquals(9, config.gridSize)
+        assertEquals(11, config.gridSize)
         assertEquals(0.3f, config.reverseWordProbability)
         assertEquals(4, config.minWordLength)
         assertEquals(7, config.targetWordCount)
@@ -85,7 +85,7 @@ class GameBoardGeneratorTest {
     fun `test getDifficultyConfig returns correct config for level 41+`() {
         val config = gameBoardGenerator.getDifficultyConfig(50)
 
-        assertEquals(10, config.gridSize)
+        assertEquals(12, config.gridSize)
         assertEquals(0.8f, config.reverseWordProbability)
         assertEquals(5, config.minWordLength)
         assertEquals(8, config.targetWordCount)
@@ -260,7 +260,7 @@ class GameBoardGeneratorTest {
     fun `getCasualConfig returns a fixed easy config independent of level`() {
         val config = gameBoardGenerator.getCasualConfig()
 
-        assertEquals(8, config.gridSize)
+        assertEquals(10, config.gridSize)
         assertEquals(
             listOf(Direction.HORIZONTAL, Direction.VERTICAL),
             config.allowedDirections
