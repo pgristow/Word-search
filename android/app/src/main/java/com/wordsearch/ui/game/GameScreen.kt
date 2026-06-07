@@ -46,7 +46,12 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -666,25 +671,24 @@ fun WordGrid(
                 }
             }
 
-            // 2) Letter tiles ON TOP — explicit cellDp sizing (not weight) so every tile
-            //    lines up 1:1 with the touch cell and the line.
+            // 2) Tile BACKGROUNDS — explicit cellDp sizing (not weight) so every tile lines
+            //    up 1:1 with the touch cell and the line. Letters are drawn later, ON TOP of
+            //    the paint, so paint never hides them.
             Column(modifier = Modifier.fillMaxSize()) {
                 grid.forEachIndexed { r, row ->
                     Row(modifier = Modifier.fillMaxWidth().height(cellDp)) {
-                        row.forEachIndexed { c, char ->
+                        row.forEachIndexed { c, _ ->
                             val cell = r to c
                             val isSelected = selectedSet.contains(cell)
                             val isHinted = hintedSet.contains(cell)
                             val isFound = !isSelected && !isHinted && foundColorByCell[cell] != null
-                            val tileColor: Color
-                            val textColor: Color
-                            when {
-                                isSelected -> { tileColor = SelectBlue; textColor = Color.White }
-                                isHinted -> { tileColor = HintHighlight; textColor = Color.White }
-                                isFound -> { tileColor = foundColorByCell[cell]!!; textColor = Color.White }
-                                else -> { tileColor = MaterialTheme.colorScheme.surface; textColor = MaterialTheme.colorScheme.onSurface }
+                            val tileColor = when {
+                                isSelected -> SelectBlue
+                                isHinted -> HintHighlight
+                                isFound -> foundColorByCell[cell]!!
+                                else -> MaterialTheme.colorScheme.surface
                             }
-                            GridCell(char, Modifier.width(cellDp).fillMaxHeight(), tileColor, textColor, isFound, foundOrderByCell[cell] ?: 0)
+                            GridCell(Modifier.width(cellDp).fillMaxHeight(), tileColor, isFound)
                         }
                     }
                 }
@@ -735,6 +739,48 @@ fun WordGrid(
             }
             Canvas(modifier = Modifier.fillMaxSize()) {
                 drops.forEach { d -> drawPaintDrop(d) }
+            }
+
+            // 4) Letters ON TOP of the paint, each with a crisp outline (the "bevel") so they
+            //    stay readable over any paint colour. One outline (Stroke) pass + one fill
+            //    pass per glyph, drawn via the text measurer. Layouts are cached per char.
+            val measurer = rememberTextMeasurer()
+            val onSurface = MaterialTheme.colorScheme.onSurface
+            val fontSp = (cellDp.value * 0.5f).sp
+            val baseStyle = remember(fontSp) {
+                TextStyle(fontSize = fontSp, fontWeight = FontWeight.Black)
+            }
+            val strokeStyle = remember(fontSp, cellPx) {
+                TextStyle(fontSize = fontSp, fontWeight = FontWeight.Black, drawStyle = Stroke(width = cellPx * 0.10f))
+            }
+            val fillCache = remember(fontSp) { HashMap<Char, TextLayoutResult>() }
+            val strokeCache = remember(fontSp, cellPx) { HashMap<Char, TextLayoutResult>() }
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                for (r in grid.indices) {
+                    for (c in grid[r].indices) {
+                        val ch = grid[r][c]
+                        val cell = r to c
+                        val fill = when {
+                            selectedSet.contains(cell) -> Color.White
+                            hintedSet.contains(cell) -> Color.White
+                            foundColorByCell[cell] != null -> Color.White
+                            else -> onSurface
+                        }
+                        val outline = if (fill.luminance() > 0.5f) Color(0xFF1B1A2E) else Color.White
+                        val fillLayout = fillCache.getOrPut(ch) { measurer.measure(ch.uppercase(), baseStyle) }
+                        val strokeLayout = strokeCache.getOrPut(ch) { measurer.measure(ch.uppercase(), strokeStyle) }
+                        val cx = (c + 0.5f) * cellPx
+                        val cy = (r + 0.5f) * cellPx
+                        drawText(
+                            strokeLayout, color = outline,
+                            topLeft = Offset(cx - strokeLayout.size.width / 2f, cy - strokeLayout.size.height / 2f)
+                        )
+                        drawText(
+                            fillLayout, color = fill,
+                            topLeft = Offset(cx - fillLayout.size.width / 2f, cy - fillLayout.size.height / 2f)
+                        )
+                    }
+                }
             }
         }
     }
@@ -819,16 +865,13 @@ fun getWordColor(index: Int): Color {
 
 @Composable
 fun GridCell(
-    char: Char,
     modifier: Modifier = Modifier,
     tileColor: Color = Color.White,
-    textColor: Color = Color.Black,
-    isFound: Boolean = false,
-    waveIndex: Int = 0
+    isFound: Boolean = false
 ) {
-    // Highlight is a colour change plus a centred SCALE pop — the tile never translates or
-    // rotates, so it can't leave its grid cell (that was the old misalignment bug). The pop
-    // springs up from small with a bounce when the word is found, then rests at 1.0.
+    // Just the tile BACKGROUND — letters are drawn in a separate layer above the paint.
+    // Highlight is a colour change plus a centred SCALE pop; the tile never translates or
+    // rotates, so it can't leave its grid cell (that was the old misalignment bug).
     val animColor by animateColorAsState(tileColor, tween(220), label = "tileColor")
     val pop = remember { Animatable(1f) }
     LaunchedEffect(isFound) {
@@ -839,30 +882,13 @@ fun GridCell(
             pop.snapTo(1f)
         }
     }
-    // Fills the exact cell its parent allotted so the visible tile lines up 1:1 with the
-    // touch + line grid. A hairline 1dp inset only separates neighbours visually without
-    // pulling the highlight away from the cell the user actually touched. Font scales with
-    // the tile so the bigger grids stay legible.
-    BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
-        val fontSp = (maxWidth.value * 0.5f).sp
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(1.dp)
-                .graphicsLayer { scaleX = pop.value; scaleY = pop.value } // centred → no drift
-                .clip(RoundedCornerShape(10.dp))
-                .background(animColor),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = char.uppercase(),
-                fontSize = fontSp,
-                fontWeight = FontWeight.Bold,
-                color = textColor,
-                maxLines = 1
-            )
-        }
-    }
+    Box(
+        modifier = modifier
+            .padding(1.dp)
+            .graphicsLayer { scaleX = pop.value; scaleY = pop.value } // centred → no drift
+            .clip(RoundedCornerShape(10.dp))
+            .background(animColor)
+    )
 }
 
 @Composable
