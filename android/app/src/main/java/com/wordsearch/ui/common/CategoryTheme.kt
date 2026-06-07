@@ -33,7 +33,8 @@ fun categoryTheme(name: String): CategoryTheme = when (name.trim().lowercase()) 
     "music" -> CategoryTheme("🎵", Color(0xFFFBCBDD), Color(0xFFF06292))
     "geography" -> CategoryTheme("🌍", Color(0xFFBFE3DE), Color(0xFF26A69A))
     "history" -> CategoryTheme("🏛️", Color(0xFFE3D6CC), Color(0xFF8D6E63))
-    else -> CategoryTheme("📚", Color(0xFFD7CCEC), Color(0xFF9575CD))
+    // Neutral fallback (no books motif) — a soft star instead.
+    else -> CategoryTheme("⭐", Color(0xFFD7CCEC), Color(0xFF9575CD))
 }
 
 /**

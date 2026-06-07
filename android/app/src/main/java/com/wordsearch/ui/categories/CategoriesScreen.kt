@@ -45,7 +45,7 @@ fun CategoriesScreen(
                 title = {
                     Column {
                         Text(
-                            text = "Word Search",
+                            text = com.wordsearch.ui.common.AppBranding.NAME,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )

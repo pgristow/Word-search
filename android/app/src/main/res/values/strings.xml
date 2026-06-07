@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Word Search</string>
+    <!-- App name. Keep in sync with AppBranding.NAME (the in-app source of truth). -->
+    <string name="app_name">WordPop</string>
 
     <!-- Auth -->
     <string name="login">Login</string>

@@ -111,7 +111,7 @@ fun GameScreen(
                             if (!isCasualMode) TopStat("Combo", "${s.currentCombo}x")
                         }
                     } else {
-                        Text("Word Search")
+                        Text(com.wordsearch.ui.common.AppBranding.NAME)
                     }
                 },
                 actions = {
@@ -151,9 +151,7 @@ fun GameScreen(
         ) {
             when (val state = uiState) {
                 is GameUiState.Loading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                    com.wordsearch.ui.common.BrandedLoadingScreen()
                 }
 
                 is GameUiState.Error -> {
@@ -266,7 +264,9 @@ fun GamePlayingContent(
             isCasualMode = isCasualMode
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        // Weighted spacers above and below centre the grid in the space under the word
+        // list, so it sits in the middle of the screen instead of stranded at the top.
+        Spacer(modifier = Modifier.weight(1f))
 
         // Grid area — its size is locked to the screen WIDTH (a perfect square), so it
         // NEVER resizes or shifts when other UI (e.g. the bonus-word list) appears or the

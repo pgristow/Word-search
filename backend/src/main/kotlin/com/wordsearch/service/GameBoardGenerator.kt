@@ -44,15 +44,15 @@ class GameBoardGenerator(
             val wordToPlace = if (shouldReverse) word.reversed() else word
 
             // Guarantee at least one diagonal per board: force the first (longest) word
-            // onto a diagonal direction when the config allows diagonals. Subsequent words
-            // prefer placements that cross an already-placed word at a shared letter
-            // (crossword-style), packing the board with mixed directions.
+            // onto a diagonal direction when the config allows diagonals. Every word then
+            // prefers a well-SEPARATED, non-crossing spot so the words spread across the
+            // board instead of bunching/overlapping (crossing only as a last resort).
             val forceDiagonal = index == 0 && diagonalDirs.isNotEmpty()
             val placement = if (forceDiagonal) {
-                findInterlockingPlacement(grid, wordToPlace, config, preferIntersection = false, restrictTo = diagonalDirs)
-                    ?: findInterlockingPlacement(grid, wordToPlace, config, preferIntersection = false)
+                findSpreadPlacement(grid, wordToPlace, config, restrictTo = diagonalDirs)
+                    ?: findSpreadPlacement(grid, wordToPlace, config)
             } else {
-                findInterlockingPlacement(grid, wordToPlace, config, preferIntersection = placedWords.isNotEmpty())
+                findSpreadPlacement(grid, wordToPlace, config)
             }
             if (placement != null) {
                 placeWord(grid, wordToPlace, placement)
@@ -256,6 +256,55 @@ class GameBoardGenerator(
             if (crossing.isNotEmpty()) return crossing.random().first
         }
         return candidates.random().first
+    }
+
+    /**
+     * Picks a placement that spreads this word AWAY from already-placed letters. Among all
+     * legal placements it strongly prefers non-crossing ones, and within those the spots
+     * whose nearest occupied cell is farthest away — so words fan out across the board
+     * instead of clumping. A little randomness keeps boards varied.
+     */
+    private fun findSpreadPlacement(
+        grid: Array<CharArray>,
+        word: String,
+        config: DifficultyConfig,
+        restrictTo: List<Direction>? = null
+    ): Placement? {
+        val directions = restrictTo ?: config.allowedDirections
+        val occupied = ArrayList<Pair<Int, Int>>()
+        for (r in grid.indices) for (c in grid[r].indices) if (grid[r][c] != ' ') occupied.add(r to c)
+
+        // placement -> (overlap, spread) where spread = min Manhattan distance to any
+        // existing letter (Int.MAX_VALUE / 0 when the board is still empty).
+        data class Scored(val placement: Placement, val overlap: Int, val spread: Int)
+        val scored = ArrayList<Scored>()
+        for (row in grid.indices) {
+            for (col in grid[row].indices) {
+                for (dir in directions) {
+                    val overlap = overlapCount(grid, word, row, col, dir)
+                    if (overlap < 0) continue
+                    val (dr, dc) = dir.deltas
+                    var spread = if (occupied.isEmpty()) 0 else Int.MAX_VALUE
+                    if (occupied.isNotEmpty()) {
+                        for (i in word.indices) {
+                            val r = row + dr * i
+                            val c = col + dc * i
+                            for ((orr, occ) in occupied) {
+                                val d = kotlin.math.abs(r - orr) + kotlin.math.abs(c - occ)
+                                if (d < spread) spread = d
+                            }
+                        }
+                    }
+                    scored.add(Scored(Placement(row, col, dir), overlap, spread))
+                }
+            }
+        }
+        if (scored.isEmpty()) return null
+        // Prefer non-crossing placements; fall back to crossing only if forced.
+        val pool = scored.filter { it.overlap == 0 }.ifEmpty { scored }
+        val best = pool.maxOf { it.spread }
+        // Pick randomly among the most spread-out spots (within 1 of the best) for variety.
+        return pool.filter { it.spread >= best - 1 }.random().placement
     }
 
     /**
