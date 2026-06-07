@@ -1,6 +1,7 @@
 package com.wordsearch.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -9,6 +10,8 @@ import androidx.navigation.navArgument
 import com.wordsearch.ui.auth.LoginScreen
 import com.wordsearch.ui.auth.RegisterScreen
 import com.wordsearch.ui.categories.CategoriesScreen
+import com.wordsearch.ui.landing.LandingScreen
+import com.wordsearch.ui.profile.ProfileScreen
 import com.wordsearch.ui.mode.ModeSelectionScreen
 import com.wordsearch.ui.game.GameScreen
 import com.wordsearch.ui.achievements.AchievementsScreen
@@ -20,7 +23,12 @@ import com.wordsearch.ui.store.StoreScreen
 sealed class Screen(val route: String) {
     object Login : Screen("login")
     object Register : Screen("register")
-    object Categories : Screen("categories")
+    object Landing : Screen("landing")
+    object Profile : Screen("profile")
+    object Categories : Screen("categories?mode={mode}") {
+        fun createRoute(mode: String? = null) =
+            if (mode != null) "categories?mode=$mode" else "categories"
+    }
     object ModeSelection : Screen("mode_selection/{categoryId}/{categoryName}") {
         fun createRoute(categoryId: String, categoryName: String) = "mode_selection/$categoryId/$categoryName"
     }
@@ -42,17 +50,18 @@ fun NavGraph(
     navController: NavHostController,
     startDestination: String
 ) {
+    val context = LocalContext.current
     // Shared handler for the persistent bottom navigation bar: jump to a primary
-    // destination, keeping Categories as the base so the back stack doesn't grow.
+    // destination, keeping Landing as the base so the back stack doesn't grow.
     val onBottomNav: (com.wordsearch.ui.common.BottomDest) -> Unit = { dest ->
         val route = when (dest) {
             com.wordsearch.ui.common.BottomDest.DAILY -> Screen.DailyChallenge.route
-            com.wordsearch.ui.common.BottomDest.CATEGORIES -> Screen.Categories.route
+            com.wordsearch.ui.common.BottomDest.CATEGORIES -> Screen.Categories.createRoute()
             com.wordsearch.ui.common.BottomDest.ACHIEVEMENTS -> Screen.Achievements.route
             com.wordsearch.ui.common.BottomDest.LEADERBOARD -> Screen.Leaderboard.route
         }
         navController.navigate(route) {
-            popUpTo(Screen.Categories.route) { inclusive = false }
+            popUpTo(Screen.Landing.route) { inclusive = false }
             launchSingleTop = true
         }
     }
@@ -67,7 +76,7 @@ fun NavGraph(
                     navController.navigate(Screen.Register.route)
                 },
                 onLoginSuccess = {
-                    navController.navigate(Screen.Categories.route) {
+                    navController.navigate(Screen.Landing.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 }
@@ -80,17 +89,43 @@ fun NavGraph(
                     navController.popBackStack()
                 },
                 onRegisterSuccess = {
-                    navController.navigate(Screen.Categories.route) {
+                    navController.navigate(Screen.Landing.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 }
             )
         }
 
-        composable(Screen.Categories.route) {
+        composable(Screen.Landing.route) {
+            LandingScreen(
+                onCompetitive = { navController.navigate(Screen.Categories.createRoute("COMPETITIVE")) },
+                onCasual = { navController.navigate(Screen.Categories.createRoute("CASUAL")) },
+                onProfile = { navController.navigate(Screen.Profile.route) },
+                onSettings = { navController.navigate(Screen.Settings.route) },
+                onQuit = { (context as? android.app.Activity)?.finish() }
+            )
+        }
+
+        composable(Screen.Profile.route) {
+            ProfileScreen(onNavigateBack = { navController.popBackStack() })
+        }
+
+        composable(
+            route = Screen.Categories.route,
+            arguments = listOf(navArgument("mode") {
+                type = NavType.StringType; nullable = true; defaultValue = null
+            })
+        ) { backStackEntry ->
+            val presetMode = backStackEntry.arguments?.getString("mode")
             CategoriesScreen(
                 onNavigateToGame = { categoryId, categoryName ->
-                    navController.navigate(Screen.ModeSelection.createRoute(categoryId, categoryName))
+                    if (presetMode != null) {
+                        // Casual/Competitive chosen on the landing page — skip ModeSelection.
+                        val gm = if (presetMode.equals("CASUAL", ignoreCase = true)) "CASUAL" else "CLASSIC"
+                        navController.navigate(Screen.Game.createRoute(categoryId, gm))
+                    } else {
+                        navController.navigate(Screen.ModeSelection.createRoute(categoryId, categoryName))
+                    }
                 },
                 onNavigateToAchievements = {
                     navController.navigate(Screen.Achievements.route)

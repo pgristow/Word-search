@@ -40,7 +40,7 @@ fun WordSearchApp() {
 
     // Determine start destination based on login status
     val startDestination = if (authViewModel.isLoggedIn()) {
-        Screen.Categories.route
+        Screen.Landing.route
     } else {
         Screen.Login.route
     }
