@@ -34,6 +34,7 @@ sealed class Screen(val route: String) {
     object Premium : Screen("premium")
     object Store : Screen("store")
     object Settings : Screen("settings")
+    object Credits : Screen("credits")
 }
 
 @Composable
@@ -122,6 +123,13 @@ fun NavGraph(
 
         composable(Screen.Settings.route) {
             com.wordsearch.ui.settings.SettingsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToCredits = { navController.navigate(Screen.Credits.route) }
+            )
+        }
+
+        composable(Screen.Credits.route) {
+            com.wordsearch.ui.credits.CreditsScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
