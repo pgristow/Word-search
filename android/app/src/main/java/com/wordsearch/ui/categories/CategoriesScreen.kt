@@ -98,32 +98,18 @@ fun CategoriesScreen(
             )
         },
         bottomBar = {
-            NavigationBar {
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Star, contentDescription = null) },
-                    label = { Text("Daily") },
-                    selected = false,
-                    onClick = onNavigateToDailyChallenge
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.List, contentDescription = null) },
-                    label = { Text("Categories") },
-                    selected = true,
-                    onClick = { }
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Favorite, contentDescription = null) },
-                    label = { Text("Achievements") },
-                    selected = false,
-                    onClick = onNavigateToAchievements
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Person, contentDescription = null) },
-                    label = { Text("Leaderboard") },
-                    selected = false,
-                    onClick = onNavigateToLeaderboard
-                )
-            }
+            // Shared bar so Categories matches every other page (same icons + styling).
+            com.wordsearch.ui.common.AppBottomBar(
+                current = com.wordsearch.ui.common.BottomDest.CATEGORIES,
+                onSelect = { dest ->
+                    when (dest) {
+                        com.wordsearch.ui.common.BottomDest.DAILY -> onNavigateToDailyChallenge()
+                        com.wordsearch.ui.common.BottomDest.CATEGORIES -> { /* already here */ }
+                        com.wordsearch.ui.common.BottomDest.ACHIEVEMENTS -> onNavigateToAchievements()
+                        com.wordsearch.ui.common.BottomDest.LEADERBOARD -> onNavigateToLeaderboard()
+                    }
+                }
+            )
         }
     ) { paddingValues ->
         Box(
