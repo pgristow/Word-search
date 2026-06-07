@@ -37,15 +37,23 @@ class GameBoardGenerator(
 
         // Sort words by length (longest first for better placement)
         val sortedWords = words.take(config.targetWordCount).sortedByDescending { it.length }
+        val diagonalDirs = config.allowedDirections.filter { it.isDiagonal }
 
-        for (word in sortedWords) {
+        sortedWords.forEachIndexed { index, word ->
             val shouldReverse = Random.nextFloat() < config.reverseWordProbability
             val wordToPlace = if (shouldReverse) word.reversed() else word
 
-            // After the first word, prefer placements that cross an already-placed word
-            // at a shared letter (crossword-style). This packs the board and forces
-            // variety of directions instead of everything running the same way.
-            val placement = findInterlockingPlacement(grid, wordToPlace, config, preferIntersection = placedWords.isNotEmpty())
+            // Guarantee at least one diagonal per board: force the first (longest) word
+            // onto a diagonal direction when the config allows diagonals. Subsequent words
+            // prefer placements that cross an already-placed word at a shared letter
+            // (crossword-style), packing the board with mixed directions.
+            val forceDiagonal = index == 0 && diagonalDirs.isNotEmpty()
+            val placement = if (forceDiagonal) {
+                findInterlockingPlacement(grid, wordToPlace, config, preferIntersection = false, restrictTo = diagonalDirs)
+                    ?: findInterlockingPlacement(grid, wordToPlace, config, preferIntersection = false)
+            } else {
+                findInterlockingPlacement(grid, wordToPlace, config, preferIntersection = placedWords.isNotEmpty())
+            }
             if (placement != null) {
                 placeWord(grid, wordToPlace, placement)
                 placedWords.add(
@@ -77,65 +85,97 @@ class GameBoardGenerator(
      * Gets difficulty configuration based on current level
      */
     fun getDifficultyConfig(level: Int): DifficultyConfig {
+        val allDirs = Direction.values().toList()
+        // Diagonals available even in the easiest band (we force one per board); reverse
+        // ramps up across the three tiers. Grid size and word length grow with level.
+        val easyDirs = listOf(
+            Direction.HORIZONTAL,
+            Direction.VERTICAL,
+            Direction.DIAGONAL_DOWN_RIGHT,
+            Direction.DIAGONAL_DOWN_LEFT
+        )
+        val mediumDirs = listOf(
+            Direction.HORIZONTAL,
+            Direction.VERTICAL,
+            Direction.DIAGONAL_DOWN_RIGHT,
+            Direction.DIAGONAL_DOWN_LEFT,
+            Direction.HORIZONTAL_REVERSE,
+            Direction.VERTICAL_REVERSE
+        )
         return when {
-            level in 1..5 -> DifficultyConfig(
-                gridSize = 10,
-                allowedDirections = listOf(Direction.HORIZONTAL, Direction.VERTICAL),
-                reverseWordProbability = 0f,
+            // ---- EASY tier: levels 1–100 ----
+            level <= 25 -> DifficultyConfig(
+                gridSize = 9,
+                allowedDirections = easyDirs,
+                reverseWordProbability = 0.1f,
                 minWordLength = 3,
                 targetWordCount = 5,
                 distractorLetters = "ETAOINSHRDLU"
             )
-            level in 6..10 -> DifficultyConfig(
-                gridSize = 11,
-                allowedDirections = listOf(
-                    Direction.HORIZONTAL,
-                    Direction.VERTICAL,
-                    Direction.DIAGONAL_DOWN_RIGHT
-                ),
-                reverseWordProbability = 0f,
+            level <= 60 -> DifficultyConfig(
+                gridSize = 10,
+                allowedDirections = easyDirs,
+                reverseWordProbability = 0.15f,
                 minWordLength = 3,
                 targetWordCount = 6,
-                distractorLetters = "ETAOINSHRDLUCMFWYPVBGKJQXZ"
+                distractorLetters = "ETAOINSHRDLUCMFWYP"
             )
-            level in 11..15 -> DifficultyConfig(
+            level <= 100 -> DifficultyConfig(
+                gridSize = 10,
+                allowedDirections = mediumDirs,
+                reverseWordProbability = 0.2f,
+                minWordLength = 3,
+                targetWordCount = 6,
+                distractorLetters = "ETAOINSHRDLUCMFWYPVBGK"
+            )
+            // ---- MEDIUM tier: levels 101–400 ----
+            level <= 200 -> DifficultyConfig(
                 gridSize = 11,
-                allowedDirections = Direction.values().toList(),
-                reverseWordProbability = 0.3f,
+                allowedDirections = mediumDirs,
+                reverseWordProbability = 0.35f,
                 minWordLength = 4,
                 targetWordCount = 7,
                 distractorLetters = "ETAOINSHRDLUCMFWYPVBGKJQXZ"
             )
-            level in 16..20 -> DifficultyConfig(
+            level <= 300 -> DifficultyConfig(
                 gridSize = 12,
-                allowedDirections = Direction.values().toList(),
-                reverseWordProbability = 0.5f,
+                allowedDirections = allDirs,
+                reverseWordProbability = 0.45f,
                 minWordLength = 4,
                 targetWordCount = 8,
                 distractorLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             )
-            level in 21..30 -> DifficultyConfig(
+            level <= 400 -> DifficultyConfig(
                 gridSize = 12,
-                allowedDirections = Direction.values().toList(),
-                reverseWordProbability = 0.6f,
+                allowedDirections = allDirs,
+                reverseWordProbability = 0.55f,
                 minWordLength = 4,
-                targetWordCount = 8,
+                targetWordCount = 9,
                 distractorLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             )
-            level in 31..40 -> DifficultyConfig(
-                gridSize = 12,
-                allowedDirections = Direction.values().toList(),
-                reverseWordProbability = 0.7f,
+            // ---- HARD tier: levels 401–1000 ----
+            level <= 600 -> DifficultyConfig(
+                gridSize = 13,
+                allowedDirections = allDirs,
+                reverseWordProbability = 0.65f,
                 minWordLength = 5,
-                targetWordCount = 8,
+                targetWordCount = 10,
+                distractorLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            )
+            level <= 800 -> DifficultyConfig(
+                gridSize = 14,
+                allowedDirections = allDirs,
+                reverseWordProbability = 0.75f,
+                minWordLength = 5,
+                targetWordCount = 11,
                 distractorLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             )
             else -> DifficultyConfig(
-                gridSize = 12,
-                allowedDirections = Direction.values().toList(),
-                reverseWordProbability = 0.8f,
-                minWordLength = 5,
-                targetWordCount = 8,
+                gridSize = 15,
+                allowedDirections = allDirs,
+                reverseWordProbability = 0.85f,
+                minWordLength = 6,
+                targetWordCount = 12,
                 distractorLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             )
         }
@@ -143,12 +183,18 @@ class GameBoardGenerator(
 
     /**
      * Fixed, easy difficulty for casual mode. Independent of the player's level so
-     * casual always offers a relaxed baseline (no reversals, no diagonals).
+     * casual always offers a relaxed baseline — but with a guaranteed diagonal and a
+     * little reverse/diagonal variety so it doesn't feel monotonous.
      */
     fun getCasualConfig(): DifficultyConfig = DifficultyConfig(
         gridSize = 10,
-        allowedDirections = listOf(Direction.HORIZONTAL, Direction.VERTICAL),
-        reverseWordProbability = 0f,
+        allowedDirections = listOf(
+            Direction.HORIZONTAL,
+            Direction.VERTICAL,
+            Direction.DIAGONAL_DOWN_RIGHT,
+            Direction.DIAGONAL_DOWN_LEFT
+        ),
+        reverseWordProbability = 0.15f,
         minWordLength = 3,
         targetWordCount = 8,
         distractorLetters = "ETAOINSHRDLUCMFWYPVBGKJQXZ"
@@ -186,12 +232,14 @@ class GameBoardGenerator(
         grid: Array<CharArray>,
         word: String,
         config: DifficultyConfig,
-        preferIntersection: Boolean
+        preferIntersection: Boolean,
+        restrictTo: List<Direction>? = null
     ): Placement? {
+        val directions = restrictTo ?: config.allowedDirections
         val candidates = ArrayList<Pair<Placement, Int>>() // placement + number of shared (crossing) letters
         for (row in grid.indices) {
             for (col in grid[row].indices) {
-                for (direction in config.allowedDirections) {
+                for (direction in directions) {
                     val overlap = overlapCount(grid, word, row, col, direction)
                     if (overlap >= 0) candidates.add(Placement(row, col, direction) to overlap)
                 }
@@ -488,5 +536,9 @@ enum class Direction(val deltas: Pair<Int, Int>) {
     HORIZONTAL_REVERSE(0 to -1),
     VERTICAL_REVERSE(-1 to 0),
     DIAGONAL_UP_RIGHT(-1 to 1),
-    DIAGONAL_UP_LEFT(-1 to -1)
+    DIAGONAL_UP_LEFT(-1 to -1);
+
+    /** True for the four diagonal directions. */
+    val isDiagonal: Boolean
+        get() = deltas.first != 0 && deltas.second != 0
 }

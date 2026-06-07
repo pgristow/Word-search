@@ -248,19 +248,17 @@ fun GamePlayingContent(
             isCasualMode = isCasualMode
         )
 
-        if (bonusWords.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(6.dp))
-            BonusWordsList(bonusWords = bonusWords)
-        }
-
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Grid area — fixed position; the found-word popup overlays it without moving anything.
+        // Grid area — its size is locked to the screen WIDTH (a perfect square), so it
+        // NEVER resizes or shifts when other UI (e.g. the bonus-word list) appears or the
+        // header changes height. This is what keeps found tiles sitting exactly where they
+        // were. The found-word popup overlays it without moving anything.
         val popup by viewModel.wordPopup.collectAsState()
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f),
+                .aspectRatio(1f),
             contentAlignment = Alignment.Center
         ) {
             WordGrid(
@@ -274,6 +272,15 @@ fun GamePlayingContent(
             )
             WordFoundPopup(popup = popup, onDone = { viewModel.clearWordPopup() })
         }
+
+        // Bonus (off-list) words appear BELOW the grid, so discovering one never moves the
+        // grid above it.
+        if (bonusWords.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            BonusWordsList(bonusWords = bonusWords)
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
     }
 }
 

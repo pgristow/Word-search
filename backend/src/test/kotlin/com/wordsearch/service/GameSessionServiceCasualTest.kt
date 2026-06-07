@@ -48,7 +48,7 @@ class GameSessionServiceCasualTest {
             GameBoardGenerator(wordRepository, categoryRepository),
             categoryRepository, wordRepository, userFoundWordRepository,
             ScoringService(), WordClassifier(dictionary), economyService,
-            leaderboardService, mockk(relaxed = true), userRepository, mapper
+            leaderboardService, mockk(relaxed = true), userRepository, mockk(relaxed = true), mapper
         )
         every { gameSessionRepository.save(any()) } answers { firstArg() }
         every { userProgressRepository.save(any()) } answers { firstArg() }

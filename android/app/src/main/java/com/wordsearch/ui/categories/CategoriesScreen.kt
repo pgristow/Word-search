@@ -1,20 +1,25 @@
 package com.wordsearch.ui.categories
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.wordsearch.data.model.Category
 
@@ -297,23 +302,27 @@ fun CategoryCard(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                if (isLocked) {
-                    Icon(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = "Locked",
-                        modifier = Modifier.size(40.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(40.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
+                // Cartoon-style category badge: a big emoji on a soft tinted circle.
+                val art = categoryArt(category.name)
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(CircleShape)
+                        .background(art.tint.copy(alpha = if (isLocked) 0.12f else 0.22f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isLocked) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Locked",
+                            modifier = Modifier.size(34.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Text(text = art.emoji, fontSize = 40.sp)
+                    }
                 }
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
                     text = category.name,
@@ -347,4 +356,21 @@ fun CategoryCard(
             }
         }
     }
+}
+
+/** Cartoon-style art (emoji + accent colour) for a category, matched by name. */
+private data class CategoryArt(val emoji: String, val tint: Color)
+
+private fun categoryArt(name: String): CategoryArt = when (name.trim().lowercase()) {
+    "animals" -> CategoryArt("🦁", Color(0xFFFF8A3D))
+    "food" -> CategoryArt("🍔", Color(0xFFE3563B))
+    "sports" -> CategoryArt("⚽", Color(0xFF2E7D32))
+    "science" -> CategoryArt("🔬", Color(0xFF6A1B9A))
+    "nature" -> CategoryArt("🌿", Color(0xFF2E9E6B))
+    "technology" -> CategoryArt("💻", Color(0xFF1565C0))
+    "space" -> CategoryArt("🚀", Color(0xFF3949AB))
+    "music" -> CategoryArt("🎵", Color(0xFFC2185B))
+    "geography" -> CategoryArt("🌍", Color(0xFF00897B))
+    "history" -> CategoryArt("🏛️", Color(0xFF8D6E63))
+    else -> CategoryArt("📚", Color(0xFF5C6BC0))
 }

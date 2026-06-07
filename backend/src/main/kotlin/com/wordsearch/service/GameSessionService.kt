@@ -26,6 +26,7 @@ class GameSessionService(
     private val leaderboardService: LeaderboardService,
     private val leagueService: LeagueService,
     private val userRepository: UserRepository,
+    private val achievementService: AchievementService,
     private val objectMapper: com.fasterxml.jackson.databind.ObjectMapper
 ) {
 
@@ -56,7 +57,7 @@ class GameSessionService(
             gameBoardGenerator.getDifficultyConfig(userProgress.currentLevel)
         }
         val band = if (gameMode == GameMode.CASUAL) 1..2 else difficultyBandForLevel(userProgress.currentLevel)
-        val words = selectWordsForBoard(categoryId, config.gridSize, band)
+        val words = selectWordsForBoard(categoryId, config.gridSize, band, config.minWordLength)
         val gameBoard = gameBoardGenerator.generateBoard(
             words = words,
             categoryName = category.name,
@@ -235,6 +236,11 @@ class GameSessionService(
             )
         }
         userProgressRepository.save(updatedProgress)
+
+        // Unlock any achievements now satisfied by the updated progress (e.g. First
+        // Steps on the very first word, combo/level/word-count milestones). Never let an
+        // achievement failure break word submission.
+        runCatching { achievementService.checkAndUnlockAchievements(userId) }
 
         // Project the user's lifetime classic score onto the global leaderboard, and
         // record the points on their current-week league standing so the league screen
@@ -485,25 +491,40 @@ class GameSessionService(
         return getActiveSession(userId)
     }
 
-    /** Difficulty (1-5) band of words to draw for a given player level. */
+    /**
+     * Difficulty (1-5) band of words to draw for a given player level, across the
+     * 0–1000 competitive scale: easy (1–100), medium (101–400), hard (401–1000).
+     */
     private fun difficultyBandForLevel(level: Int): IntRange = when {
-        level <= 5 -> 1..2
-        level <= 10 -> 1..3
-        level <= 15 -> 2..4
-        level <= 25 -> 3..5
+        level <= 25 -> 1..2
+        level <= 60 -> 1..3
+        level <= 100 -> 2..3
+        level <= 200 -> 2..4
+        level <= 400 -> 3..4
+        level <= 600 -> 3..5
         else -> 4..5
     }
 
     /**
      * Pick the category's words that match the difficulty [band] and fit the grid,
-     * shuffled. Widens the band if a category doesn't have enough words in range so a
-     * board is always produced.
+     * shuffled. Honors [minWordLength] so higher tiers show longer words, but widens
+     * both the band and length floor if a category lacks enough words so a board is
+     * always produced.
      */
-    private fun selectWordsForBoard(categoryId: UUID, gridSize: Int, band: IntRange): List<String> {
+    private fun selectWordsForBoard(
+        categoryId: UUID,
+        gridSize: Int,
+        band: IntRange,
+        minWordLength: Int = 3
+    ): List<String> {
         val all = wordRepository.findByCategoryId(categoryId)
         if (all.isEmpty()) return emptyList()
-        val fits = all.filter { it.word.length in 3..gridSize }
-        val candidates = if (fits.isNotEmpty()) fits else all
+        val fits = all.filter { it.word.length in minWordLength..gridSize }
+        // Fall back to the absolute 3..gridSize window if the length floor is too strict.
+        val candidates = when {
+            fits.isNotEmpty() -> fits
+            else -> all.filter { it.word.length in 3..gridSize }.ifEmpty { all }
+        }
         var pool = candidates.filter { it.difficultyLevel in band }
         if (pool.size < 8) pool = candidates.filter { it.difficultyLevel <= band.last }
         if (pool.size < 8) pool = candidates

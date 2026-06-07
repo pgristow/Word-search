@@ -38,8 +38,12 @@ class SoundManager @Inject constructor(
     private var music: MediaPlayer? = null
     private var preview: MediaPlayer? = null
 
-    /** Selectable lo-fi tracks: id -> (display name, raw resource). */
+    /** Selectable lo-fi tracks: id -> (display name, raw resource).
+     *  Pluck/Beat/Bright are rhythmic with short note envelopes (no drawn-out pads). */
     val tracks: List<Triple<String, String, Int>> = listOf(
+        Triple("lofi_pluck", "Pluck", R.raw.lofi_pluck),
+        Triple("lofi_beat", "Beat", R.raw.lofi_beat),
+        Triple("lofi_bright", "Bright", R.raw.lofi_bright),
         Triple("lofi_chill", "Chill", R.raw.lofi_chill),
         Triple("lofi_dreamy", "Dreamy", R.raw.lofi_dreamy),
         Triple("lofi_mellow", "Mellow", R.raw.lofi_mellow),
@@ -57,7 +61,7 @@ class SoundManager @Inject constructor(
         }
 
     var musicTrack: String
-        get() = prefs.getString("track", "lofi_chill") ?: "lofi_chill"
+        get() = prefs.getString("track", "lofi_pluck") ?: "lofi_pluck"
         set(v) = prefs.edit().putString("track", v).apply()
 
     /** Preferred default mode ("CLASSIC"/"CASUAL"), or null to always ask. */
@@ -65,10 +69,10 @@ class SoundManager @Inject constructor(
         get() = prefs.getString("mode", null)
         set(v) = prefs.edit().putString("mode", v).apply()
 
-    private fun resFor(id: String) = tracks.firstOrNull { it.first == id }?.third ?: R.raw.lofi_chill
+    private fun resFor(id: String) = tracks.firstOrNull { it.first == id }?.third ?: R.raw.lofi_pluck
 
     fun playCorrect() { if (sfxEnabled) soundPool.play(correctId, 0.9f, 0.9f, 1, 0, 1f) }
-    fun playIncorrect() { if (sfxEnabled) soundPool.play(incorrectId, 0.7f, 0.7f, 1, 0, 1f) }
+    fun playIncorrect() { if (sfxEnabled) soundPool.play(incorrectId, 1f, 1f, 1, 0, 1f) }
 
     fun startCasualMusic() {
         if (!musicEnabled) return

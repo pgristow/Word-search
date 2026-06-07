@@ -30,26 +30,26 @@ class GameBoardGeneratorTest {
         val words = listOf("CAT", "DOG", "BIRD", "FISH", "LION", "BEAR", "WOLF", "DEER")
         val gameBoard = gameBoardGenerator.generateBoard(1, words, "Animals")
 
-        assertEquals(10, gameBoard.gridSize, "Level 1 should have 10x10 grid")
-        assertEquals(10, gameBoard.grid.size, "Grid should have 10 rows")
-        assertEquals(10, gameBoard.grid[0].size, "Grid should have 10 columns")
+        assertEquals(9, gameBoard.gridSize, "Easy tier (level 1) should have 9x9 grid")
+        assertEquals(9, gameBoard.grid.size, "Grid should have 9 rows")
+        assertEquals(9, gameBoard.grid[0].size, "Grid should have 9 columns")
     }
 
     @Test
-    fun `test generateBoard creates correct grid size for level 15`() {
+    fun `test generateBoard creates correct grid size for level 150`() {
         val words = listOf("CAT", "DOG", "BIRD", "FISH", "LION", "BEAR", "WOLF", "DEER")
-        val gameBoard = gameBoardGenerator.generateBoard(15, words, "Animals")
+        val gameBoard = gameBoardGenerator.generateBoard(150, words, "Animals")
 
-        assertEquals(11, gameBoard.gridSize, "Level 15 should have 11x11 grid")
+        assertEquals(11, gameBoard.gridSize, "Medium tier (level 150) should have 11x11 grid")
         assertEquals(11, gameBoard.grid.size, "Grid should have 11 rows")
     }
 
     @Test
-    fun `test generateBoard creates correct grid size for level 30`() {
+    fun `test generateBoard creates correct grid size for level 500`() {
         val words = listOf("CAT", "DOG", "BIRD", "FISH", "LION", "BEAR", "WOLF", "DEER")
-        val gameBoard = gameBoardGenerator.generateBoard(30, words, "Animals")
+        val gameBoard = gameBoardGenerator.generateBoard(500, words, "Animals")
 
-        assertEquals(12, gameBoard.gridSize, "Level 30 should have 12x12 grid")
+        assertEquals(13, gameBoard.gridSize, "Hard tier (level 500) should have 13x13 grid")
     }
 
     @Test
@@ -62,33 +62,36 @@ class GameBoardGeneratorTest {
     }
 
     @Test
-    fun `test getDifficultyConfig returns correct config for level 1-5`() {
+    fun `test getDifficultyConfig returns easy-tier config for low levels`() {
         val config = gameBoardGenerator.getDifficultyConfig(3)
 
-        assertEquals(10, config.gridSize)
-        assertEquals(0f, config.reverseWordProbability)
+        assertEquals(9, config.gridSize)
+        assertEquals(0.1f, config.reverseWordProbability)
         assertEquals(3, config.minWordLength)
         assertEquals(5, config.targetWordCount)
+        // Diagonals must be available even at the easiest tier (one is forced per board).
+        assertTrue(config.allowedDirections.any { it.isDiagonal })
     }
 
     @Test
-    fun `test getDifficultyConfig returns correct config for level 11-15`() {
-        val config = gameBoardGenerator.getDifficultyConfig(12)
+    fun `test getDifficultyConfig returns medium-tier config for mid levels`() {
+        val config = gameBoardGenerator.getDifficultyConfig(150)
 
         assertEquals(11, config.gridSize)
-        assertEquals(0.3f, config.reverseWordProbability)
+        assertEquals(0.35f, config.reverseWordProbability)
         assertEquals(4, config.minWordLength)
         assertEquals(7, config.targetWordCount)
     }
 
     @Test
-    fun `test getDifficultyConfig returns correct config for level 41+`() {
-        val config = gameBoardGenerator.getDifficultyConfig(50)
+    fun `test getDifficultyConfig returns hard-tier config for high levels`() {
+        val config = gameBoardGenerator.getDifficultyConfig(1000)
 
-        assertEquals(12, config.gridSize)
-        assertEquals(0.8f, config.reverseWordProbability)
-        assertEquals(5, config.minWordLength)
-        assertEquals(8, config.targetWordCount)
+        assertEquals(15, config.gridSize)
+        assertEquals(0.85f, config.reverseWordProbability)
+        assertEquals(6, config.minWordLength)
+        assertEquals(12, config.targetWordCount)
+        assertEquals(Direction.values().toList(), config.allowedDirections)
     }
 
     @Test
@@ -244,6 +247,19 @@ class GameBoardGeneratorTest {
     }
 
     @Test
+    fun `test board always contains at least one diagonal word`() {
+        val words = listOf("BIRD", "FISH", "LION", "BEAR", "WOLF", "DEER")
+        // Run several times since placement is randomized; a diagonal must always appear.
+        repeat(20) {
+            val gameBoard = gameBoardGenerator.generateBoard(1, words, "Animals")
+            assertTrue(
+                gameBoard.placedWords.any { it.direction.isDiagonal },
+                "Every generated board should include at least one diagonal word"
+            )
+        }
+    }
+
+    @Test
     fun `test grid is fully filled with letters`() {
         val words = listOf("CAT", "DOG")
         val gameBoard = gameBoardGenerator.generateBoard(1, words, "Animals")
@@ -262,10 +278,15 @@ class GameBoardGeneratorTest {
 
         assertEquals(10, config.gridSize)
         assertEquals(
-            listOf(Direction.HORIZONTAL, Direction.VERTICAL),
+            listOf(
+                Direction.HORIZONTAL,
+                Direction.VERTICAL,
+                Direction.DIAGONAL_DOWN_RIGHT,
+                Direction.DIAGONAL_DOWN_LEFT
+            ),
             config.allowedDirections
         )
-        assertEquals(0f, config.reverseWordProbability)
+        assertEquals(0.15f, config.reverseWordProbability)
         assertEquals(3, config.minWordLength)
         assertEquals(8, config.targetWordCount)
         assertEquals("ETAOINSHRDLUCMFWYPVBGKJQXZ", config.distractorLetters)
