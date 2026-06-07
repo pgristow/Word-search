@@ -741,21 +741,19 @@ fun WordGrid(
                 drops.forEach { d -> drawPaintDrop(d) }
             }
 
-            // 4) Letters ON TOP of the paint, each with a crisp outline (the "bevel") so they
-            //    stay readable over any paint colour. One outline (Stroke) pass + one fill
-            //    pass per glyph, drawn via the text measurer. Layouts are cached per char.
+            // 4) Letters ON TOP of the paint, drawn as RAISED/EMBOSSED glyphs so they stay
+            //    readable over any paint colour without a thick outline closing the letter
+            //    holes: a dark drop-shadow on the lower-right + a light highlight on the
+            //    upper-left give a beveled, chiselled look. Layouts cached per char.
             val measurer = rememberTextMeasurer()
             val onSurface = MaterialTheme.colorScheme.onSurface
             val fontSp = (cellDp.value * 0.5f).sp
-            val baseStyle = remember(fontSp) {
+            val glyphStyle = remember(fontSp) {
                 TextStyle(fontSize = fontSp, fontWeight = FontWeight.Black)
             }
-            val strokeStyle = remember(fontSp, cellPx) {
-                TextStyle(fontSize = fontSp, fontWeight = FontWeight.Black, drawStyle = Stroke(width = cellPx * 0.10f))
-            }
-            val fillCache = remember(fontSp) { HashMap<Char, TextLayoutResult>() }
-            val strokeCache = remember(fontSp, cellPx) { HashMap<Char, TextLayoutResult>() }
+            val glyphCache = remember(fontSp) { HashMap<Char, TextLayoutResult>() }
             Canvas(modifier = Modifier.fillMaxSize()) {
+                val o = cellPx * 0.028f // bevel offset
                 for (r in grid.indices) {
                     for (c in grid[r].indices) {
                         val ch = grid[r][c]
@@ -766,19 +764,15 @@ fun WordGrid(
                             foundColorByCell[cell] != null -> Color.White
                             else -> onSurface
                         }
-                        val outline = if (fill.luminance() > 0.5f) Color(0xFF1B1A2E) else Color.White
-                        val fillLayout = fillCache.getOrPut(ch) { measurer.measure(ch.uppercase(), baseStyle) }
-                        val strokeLayout = strokeCache.getOrPut(ch) { measurer.measure(ch.uppercase(), strokeStyle) }
+                        val layout = glyphCache.getOrPut(ch) { measurer.measure(ch.uppercase(), glyphStyle) }
                         val cx = (c + 0.5f) * cellPx
                         val cy = (r + 0.5f) * cellPx
-                        drawText(
-                            strokeLayout, color = outline,
-                            topLeft = Offset(cx - strokeLayout.size.width / 2f, cy - strokeLayout.size.height / 2f)
-                        )
-                        drawText(
-                            fillLayout, color = fill,
-                            topLeft = Offset(cx - fillLayout.size.width / 2f, cy - fillLayout.size.height / 2f)
-                        )
+                        val base = Offset(cx - layout.size.width / 2f, cy - layout.size.height / 2f)
+                        // lower-right dark shadow (depth) and upper-left light edge (bevel)
+                        drawText(layout, color = Color.Black.copy(alpha = 0.55f), topLeft = base + Offset(o, o))
+                        drawText(layout, color = Color.White.copy(alpha = 0.65f), topLeft = base + Offset(-o * 0.8f, -o * 0.8f))
+                        // main fill on top
+                        drawText(layout, color = fill, topLeft = base)
                     }
                 }
             }
