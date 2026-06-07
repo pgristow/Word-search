@@ -62,6 +62,7 @@ fun GameScreen(
     gameMode: String = "CLASSIC",
     onNavigateBack: () -> Unit,
     onGameComplete: () -> Unit,
+    onBottomNav: (com.wordsearch.ui.common.BottomDest) -> Unit = {},
     viewModel: GameViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -131,10 +132,15 @@ fun GameScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent
+                    // Translucent surface scrim so the scoreboard reads as a clear banner
+                    // while the themed background still shows through softly.
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
                 )
             )
+        },
+        bottomBar = {
+            com.wordsearch.ui.common.AppBottomBar(current = null, onSelect = onBottomNav)
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->

@@ -170,7 +170,8 @@ fun NavGraph(
                 onGameComplete = {
                     // Main Menu: return all the way to the categories home.
                     navController.popBackStack(Screen.Categories.route, inclusive = false)
-                }
+                },
+                onBottomNav = onBottomNav
             )
         }
 
