@@ -41,7 +41,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -685,59 +690,126 @@ fun WordGrid(
                 }
             }
 
-            // 3) Paint splatter — each found word flings colourful blobs that RADIATE out
-            //    from the word's cells and PERSIST on the board. The number of blobs scales
-            //    with the word's score, so big words paint more. Pure overlay; semi-opaque
-            //    so the letters still read through.
+            // 3) Liquid paint — each found word launches droplets that shoot UP from its
+            //    cells, arc over (gravity), and SPLAT onto other tiles where they squash,
+            //    throw satellites and settle with depth + a wet sheen. Droplet count scales
+            //    with THIS word's score. Splats persist for the rest of the board.
             val scope = rememberCoroutineScope()
-            val marks = remember { mutableStateListOf<PaintMark>() }
+            val drops = remember { mutableStateListOf<PaintDrop>() }
             var processed by remember { mutableStateOf(0) }
-            // Wipe the paint when a fresh board loads (no found words yet).
             LaunchedEffect(foundWordPaths.isEmpty()) {
-                if (foundWordPaths.isEmpty()) { marks.clear(); processed = 0 }
+                if (foundWordPaths.isEmpty()) { drops.clear(); processed = 0 }
             }
             LaunchedEffect(paintBursts.size) {
                 while (processed < paintBursts.size) {
                     val burst = paintBursts[processed]; processed++
                     if (burst.cells.isEmpty()) continue
                     val color = getWordColor(burst.colorIndex)
-                    // Count is proportional to THIS word's score (not the total), so small
-                    // words get a small splash and big words get a big one.
-                    val count = (burst.score / 100).coerceIn(2, 45)
+                    val count = (burst.score / 130).coerceIn(3, 22) // proportional to word score
                     repeat(count) {
                         val (cr, cc) = burst.cells.random()
+                        val ox = (cc + 0.5f) * cellPx
+                        val oy = (cr + 0.5f) * cellPx
+                        // Land a short hop away on neighbouring tiles (radiate outward).
                         val ang = kotlin.random.Random.nextFloat() * 6.2832f
-                        // Stay near the word's own tiles so the paint looks stuck to them
-                        // rather than flung across the background.
-                        val rad = cellPx * (kotlin.random.Random.nextFloat() * 0.85f)
-                        val x = (cc + 0.5f) * cellPx + kotlin.math.cos(ang) * rad
-                        val y = (cr + 0.5f) * cellPx + kotlin.math.sin(ang) * rad
-                        // ~50% smaller blobs than before.
-                        val size = cellPx * (0.08f + kotlin.random.Random.nextFloat() * 0.14f)
-                        val m = PaintMark(x, y, size, color, Animatable(0f))
-                        marks.add(m)
-                        scope.launch { m.grow.animateTo(1f, tween(360, easing = FastOutSlowInEasing)) }
+                        val dist = cellPx * (0.8f + kotlin.random.Random.nextFloat() * 1.9f)
+                        val drop = PaintDrop(
+                            ox = ox, oy = oy,
+                            dx = kotlin.math.cos(ang) * dist,
+                            dy = kotlin.math.sin(ang) * dist,
+                            arc = cellPx * (1.1f + kotlin.random.Random.nextFloat() * 2.0f), // shoot up
+                            core = cellPx * (0.12f + kotlin.random.Random.nextFloat() * 0.12f),
+                            color = color,
+                            seed = kotlin.random.Random.nextFloat(),
+                            life = Animatable(0f)
+                        )
+                        drops.add(drop)
+                        scope.launch {
+                            delay((kotlin.random.Random.nextFloat() * 120f).toLong())
+                            drop.life.animateTo(1f, tween(820, easing = LinearEasing))
+                        }
                     }
+                    // Cap total persistent drops so very long games stay smooth.
+                    while (drops.size > 420) drops.removeAt(0)
                 }
             }
             Canvas(modifier = Modifier.fillMaxSize()) {
-                marks.forEach { m ->
-                    // Persistent, fairly solid blob so it reads as paint stuck to the tile.
-                    drawCircle(m.color.copy(alpha = 0.72f), radius = m.size * m.grow.value, center = Offset(m.x, m.y))
-                }
+                drops.forEach { d -> drawPaintDrop(d) }
             }
         }
     }
 }
 
-/** A persistent paint blob splattered onto the board when a word is found. */
-private class PaintMark(
-    val x: Float,
-    val y: Float,
-    val size: Float,
+/** A single liquid paint droplet: ballistic flight from [ox],[oy] to a landing offset, then a persistent splat. */
+private class PaintDrop(
+    val ox: Float, val oy: Float,
+    val dx: Float, val dy: Float,
+    val arc: Float,
+    val core: Float,
     val color: Color,
-    val grow: Animatable<Float, AnimationVector1D>
+    val seed: Float,
+    val life: Animatable<Float, AnimationVector1D>
 )
+
+/** Fraction of a droplet's life spent in flight; the rest is the impact splat + settle. */
+private const val PAINT_FLIGHT = 0.55f
+
+private fun DrawScope.drawPaintDrop(d: PaintDrop) {
+    val t = d.life.value
+    val light = lerp(d.color, Color.White, 0.38f)
+    val dark = lerp(d.color, Color.Black, 0.18f)
+    if (t < PAINT_FLIGHT) {
+        // --- In flight: a stretched teardrop arcing up then down ---
+        val f = t / PAINT_FLIGHT
+        val x = d.ox + d.dx * f
+        val y = d.oy + d.dy * f - d.arc * kotlin.math.sin(Math.PI.toFloat() * f)
+        // velocity direction (for the tail)
+        val vx = d.dx
+        val vy = d.dy - d.arc * Math.PI.toFloat() * kotlin.math.cos(Math.PI.toFloat() * f)
+        val vlen = kotlin.math.hypot(vx, vy).coerceAtLeast(0.0001f)
+        val ux = vx / vlen; val uy = vy / vlen
+        val r = d.core * 0.7f
+        // tail
+        drawLine(d.color.copy(alpha = 0.5f), Offset(x - ux * r * 2.2f, y - uy * r * 2.2f), Offset(x, y), strokeWidth = r * 1.1f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+        drawCircle(d.color, radius = r, center = Offset(x, y))
+        drawCircle(Color.White.copy(alpha = 0.45f), radius = r * 0.3f, center = Offset(x - r * 0.25f, y - r * 0.3f))
+    } else {
+        // --- Landed splat: squash overshoot then settle, with depth + sheen ---
+        val s = (t - PAINT_FLIGHT) / (1f - PAINT_FLIGHT)   // 0..1
+        val bloom = when {
+            s < 0.30f -> (s / 0.30f) * 1.18f
+            s < 0.60f -> 1.18f - 0.18f * ((s - 0.30f) / 0.30f)
+            else -> 1f
+        }
+        val lx = d.ox + d.dx
+        val ly = d.oy + d.dy
+        val r = d.core * bloom
+        // soft drop shadow (depth)
+        drawCircle(Color.Black.copy(alpha = 0.12f), radius = r * 1.06f, center = Offset(lx + r * 0.12f, ly + r * 0.20f))
+        // core with radial gradient: bright toward top-left light, darker at far rim
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(light, d.color, dark),
+                center = Offset(lx - r * 0.3f, ly - r * 0.3f),
+                radius = r * 1.5f
+            ),
+            radius = r,
+            center = Offset(lx, ly)
+        )
+        // satellite droplets flung on impact
+        for (k in 0 until 3) {
+            val a = d.seed * 6.2832f + k * 2.094f
+            val dd = r * (1.3f + 0.4f * k)
+            drawCircle(dark.copy(alpha = 0.9f), radius = r * (0.26f - k * 0.05f), center = Offset(lx + kotlin.math.cos(a) * dd, ly + kotlin.math.sin(a) * dd))
+        }
+        // wet specular sheen (upper-left)
+        drawOval(
+            color = Color.White.copy(alpha = 0.5f),
+            topLeft = Offset(lx - r * 0.5f, ly - r * 0.6f),
+            size = Size(r * 0.6f, r * 0.38f)
+        )
+    }
+}
 
 // Generate different colors for each found word.
 // Plain function (no composition) so it can be used inside DrawScope/drawBehind.
