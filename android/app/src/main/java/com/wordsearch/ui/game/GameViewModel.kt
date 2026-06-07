@@ -324,11 +324,14 @@ class GameViewModel @Inject constructor(
             try {
                 val result = gameRepository.endSession(session.sessionId)
                 if (result.isSuccess) {
-                    val response = result.getOrNull()!!
+                    val summary = result.getOrNull()!!
                     _uiState.value = GameUiState.GameOver(
-                        finalScore = response.finalScore,
-                        wordsFound = response.wordsFound,
-                        sessionDuration = response.sessionDuration
+                        finalScore = summary.totalScore,
+                        wordsFound = summary.wordsFound,
+                        sessionDuration = summary.duration.toInt(),
+                        casualBest = summary.casualBestScore,
+                        casualGames = summary.casualGamesPlayed,
+                        casualWeekly = summary.casualWeeklyScore
                     )
                 }
             } catch (e: Exception) {
@@ -388,7 +391,10 @@ sealed class GameUiState {
     data class GameOver(
         val finalScore: Int,
         val wordsFound: Int,
-        val sessionDuration: Int
+        val sessionDuration: Int,
+        val casualBest: Long = 0,
+        val casualGames: Int = 0,
+        val casualWeekly: Long = 0
     ) : GameUiState()
     data class CasualSaved(
         val finalScore: Int,

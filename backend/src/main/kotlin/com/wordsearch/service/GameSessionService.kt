@@ -347,26 +347,42 @@ class GameSessionService(
         gameSessionRepository.save(updatedSession)
 
         // Update user progress for casual mode puzzle completion
+        var casualBest = 0L
+        var casualGames = 0
+        var casualWeekly = 0L
         if (session.gameMode == GameMode.CASUAL) {
             val userProgress = userProgressRepository.findByUserId(userId)
                 ?: throw IllegalArgumentException("User progress not found")
 
+            val sessionScore = session.totalScore.toLong()
+            val week = leagueService.weekKey(java.time.LocalDate.now())
+            // Cumulative casual score for the current week; resets when the week changes.
+            val weeklyBefore = if (userProgress.casualWeekKey == week) userProgress.casualWeeklyScore else 0L
+
             val updatedProgress = userProgress.copy(
                 casualPuzzlesCompleted = userProgress.casualPuzzlesCompleted + 1,
-                casualBestScore = maxOf(userProgress.casualBestScore, session.totalScore.toLong()),
+                casualBestScore = maxOf(userProgress.casualBestScore, sessionScore),
+                casualWeeklyScore = weeklyBefore + sessionScore,
+                casualWeekKey = week,
                 lastPlayedAt = LocalDateTime.now(),
                 updatedAt = LocalDateTime.now()
             )
             userProgressRepository.save(updatedProgress)
+            casualBest = updatedProgress.casualBestScore
+            casualGames = updatedProgress.casualPuzzlesCompleted
+            casualWeekly = updatedProgress.casualWeeklyScore
 
-            // Project the user's casual best onto the casual leaderboard.
+            // Project both the all-time best and this week's cumulative onto the casual boards.
             userRepository.findById(userId).orElse(null)?.let { user ->
                 leaderboardService.upsert(
-                    userId = userId,
-                    username = user.username,
-                    boardType = LeaderboardService.BOARD_CASUAL_BEST,
-                    periodKey = LeaderboardService.PERIOD_ALL_TIME,
-                    score = updatedProgress.casualBestScore
+                    userId, user.username,
+                    LeaderboardService.BOARD_CASUAL_BEST, LeaderboardService.PERIOD_ALL_TIME,
+                    updatedProgress.casualBestScore
+                )
+                leaderboardService.upsert(
+                    userId, user.username,
+                    LeaderboardService.BOARD_CASUAL_WEEKLY, week,
+                    updatedProgress.casualWeeklyScore
                 )
             }
         }
@@ -378,7 +394,10 @@ class GameSessionService(
             totalScore = session.totalScore,
             wordsFound = session.wordsFound,
             highestCombo = session.highestCombo,
-            duration = java.time.Duration.between(session.sessionStart, updatedSession.sessionEnd).toMinutes()
+            duration = java.time.Duration.between(session.sessionStart, updatedSession.sessionEnd).toMinutes(),
+            casualBestScore = casualBest,
+            casualGamesPlayed = casualGames,
+            casualWeeklyScore = casualWeekly
         )
     }
 
@@ -500,5 +519,9 @@ data class SessionSummary(
     val totalScore: Int,
     val wordsFound: Int,
     val highestCombo: Int,
-    val duration: Long
+    val duration: Long,
+    // Casual stats (0 for classic sessions)
+    val casualBestScore: Long = 0,
+    val casualGamesPlayed: Int = 0,
+    val casualWeeklyScore: Long = 0
 )

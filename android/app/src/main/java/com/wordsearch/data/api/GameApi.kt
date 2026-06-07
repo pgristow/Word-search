@@ -24,7 +24,7 @@ interface GameApi {
     ): Response<WordSubmissionResponse>
 
     @POST("api/game/session/{id}/end")
-    suspend fun endSession(@Path("id") sessionId: String): Response<SessionEndResponse>
+    suspend fun endSession(@Path("id") sessionId: String): Response<SessionSummary>
 
     @GET("api/game/session/active")
     suspend fun getActiveSession(): Response<GameSession>
@@ -125,7 +125,10 @@ data class SessionSummary(
     val totalScore: Int,
     val wordsFound: Int,
     val highestCombo: Int,
-    val duration: Long
+    val duration: Long,
+    val casualBestScore: Long = 0,
+    val casualGamesPlayed: Int = 0,
+    val casualWeeklyScore: Long = 0
 )
 data class UserStatistics(val totalGamesPlayed: Int, val averageScore: Int, val favoriteCategory: String)
 data class StreakResponse(val currentStreak: Int, val message: String)

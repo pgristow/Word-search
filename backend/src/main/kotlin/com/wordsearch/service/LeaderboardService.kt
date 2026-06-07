@@ -16,6 +16,7 @@ class LeaderboardService(
         const val BOARD_GLOBAL_CLASSIC = "GLOBAL_CLASSIC"
         const val BOARD_LEAGUE_WEEKLY = "LEAGUE_WEEKLY"
         const val BOARD_CASUAL_BEST = "CASUAL_BEST"
+        const val BOARD_CASUAL_WEEKLY = "CASUAL_WEEKLY"
         const val PERIOD_ALL_TIME = "ALL_TIME"
     }
 

@@ -64,7 +64,7 @@ class GameRepository @Inject constructor(
         }
     }
 
-    suspend fun endSession(sessionId: String): Result<SessionEndResponse> = withContext(Dispatchers.IO) {
+    suspend fun endSession(sessionId: String): Result<SessionSummary> = withContext(Dispatchers.IO) {
         try {
             val response = gameApi.endSession(sessionId)
             if (response.isSuccessful && response.body() != null) {

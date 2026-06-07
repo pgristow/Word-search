@@ -189,6 +189,9 @@ fun GameScreen(
                         finalScore = state.finalScore,
                         wordsFound = state.wordsFound,
                         sessionDuration = state.sessionDuration,
+                        casualBest = state.casualBest,
+                        casualGames = state.casualGames,
+                        casualWeekly = state.casualWeekly,
                         onNavigateBack = onGameComplete
                     )
                 }
@@ -877,8 +880,12 @@ fun GameOverScreen(
     finalScore: Int,
     wordsFound: Int,
     sessionDuration: Int,
+    casualBest: Long = 0,
+    casualGames: Int = 0,
+    casualWeekly: Long = 0,
     onNavigateBack: () -> Unit
 ) {
+    val isCasual = casualGames > 0
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -913,11 +920,38 @@ fun GameOverScreen(
                 modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                GameOverStat("Final Score", finalScore.toString())
+                GameOverStat("This Game", finalScore.toString())
                 Spacer(modifier = Modifier.height(16.dp))
                 GameOverStat("Words Found", wordsFound.toString())
                 Spacer(modifier = Modifier.height(16.dp))
                 GameOverStat("Time", "${sessionDuration}s")
+            }
+        }
+
+        if (isCasual) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        "Casual Stats",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    GameOverStat("This Week", casualWeekly.toString())
+                    Spacer(modifier = Modifier.height(16.dp))
+                    GameOverStat("Best Run", casualBest.toString())
+                    Spacer(modifier = Modifier.height(16.dp))
+                    GameOverStat("Games Played", casualGames.toString())
+                }
             }
         }
 

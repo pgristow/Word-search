@@ -54,6 +54,12 @@ data class UserProgress(
     @Column(name = "casual_best_score")
     val casualBestScore: Long = 0,
 
+    @Column(name = "casual_weekly_score")
+    val casualWeeklyScore: Long = 0,
+
+    @Column(name = "casual_week_key")
+    val casualWeekKey: String? = null,
+
     @Column(name = "last_played_at")
     val lastPlayedAt: LocalDateTime? = null,
 
