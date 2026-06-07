@@ -25,6 +25,7 @@ import com.wordsearch.data.model.LeaderboardRowDto
 fun LeaderboardScreen(
     onNavigateBack: () -> Unit,
     onNavigateToSettings: () -> Unit = {},
+    onBottomNav: (com.wordsearch.ui.common.BottomDest) -> Unit = {},
     viewModel: LeaderboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -45,6 +46,9 @@ fun LeaderboardScreen(
                     }
                 }
             )
+        },
+        bottomBar = {
+            com.wordsearch.ui.common.AppBottomBar(current = com.wordsearch.ui.common.BottomDest.LEADERBOARD, onSelect = onBottomNav)
         }
     ) { paddingValues ->
         Column(

@@ -33,6 +33,7 @@ private const val RELEGATION_ZONE_SIZE = 5
 fun LeagueScreen(
     onNavigateBack: () -> Unit,
     onNavigateToSettings: () -> Unit = {},
+    onBottomNav: (com.wordsearch.ui.common.BottomDest) -> Unit = {},
     viewModel: LeagueViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -52,6 +53,9 @@ fun LeagueScreen(
                     }
                 }
             )
+        },
+        bottomBar = {
+            com.wordsearch.ui.common.AppBottomBar(current = null, onSelect = onBottomNav)
         }
     ) { paddingValues ->
         Box(

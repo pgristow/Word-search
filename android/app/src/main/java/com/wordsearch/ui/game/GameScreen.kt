@@ -90,7 +90,12 @@ fun GameScreen(
         viewModel.startGame(categoryId, gameMode)
     }
 
+    // Themed background behind the whole game screen, keyed to the current category.
+    val bgCategory = (uiState as? GameUiState.Playing)?.session?.category ?: ""
+    Box(modifier = Modifier.fillMaxSize()) {
+    com.wordsearch.ui.common.CategoryBackground(bgCategory)
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = {
@@ -124,7 +129,11 @@ fun GameScreen(
                             Icon(Icons.Default.Close, contentDescription = "End game")
                         }
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent
+                )
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -211,6 +220,7 @@ fun GameScreen(
                 }
             }
         }
+    }
     }
 }
 

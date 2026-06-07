@@ -21,6 +21,7 @@ import com.wordsearch.data.api.AchievementSummary
 fun AchievementsScreen(
     onNavigateBack: () -> Unit,
     onNavigateToSettings: () -> Unit = {},
+    onBottomNav: (com.wordsearch.ui.common.BottomDest) -> Unit = {},
     viewModel: AchievementsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -40,6 +41,9 @@ fun AchievementsScreen(
                     }
                 }
             )
+        },
+        bottomBar = {
+            com.wordsearch.ui.common.AppBottomBar(current = com.wordsearch.ui.common.BottomDest.ACHIEVEMENTS, onSelect = onBottomNav)
         }
     ) { paddingValues ->
         Box(

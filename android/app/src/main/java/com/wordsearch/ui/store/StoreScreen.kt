@@ -33,6 +33,7 @@ private val CoinGoldText = Color(0xFF6D4C00)
 fun StoreScreen(
     onNavigateBack: () -> Unit,
     onNavigateToSettings: () -> Unit = {},
+    onBottomNav: (com.wordsearch.ui.common.BottomDest) -> Unit = {},
     viewModel: StoreViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -62,6 +63,9 @@ fun StoreScreen(
                     }
                 }
             )
+        },
+        bottomBar = {
+            com.wordsearch.ui.common.AppBottomBar(current = null, onSelect = onBottomNav)
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->

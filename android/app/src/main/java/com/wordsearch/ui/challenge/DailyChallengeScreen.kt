@@ -19,6 +19,7 @@ import com.wordsearch.data.api.DailyChallenge
 fun DailyChallengeScreen(
     onNavigateBack: () -> Unit,
     onNavigateToSettings: () -> Unit = {},
+    onBottomNav: (com.wordsearch.ui.common.BottomDest) -> Unit = {},
     onNavigateToGame: (String, String) -> Unit,
     viewModel: DailyChallengeViewModel = hiltViewModel()
 ) {
@@ -40,6 +41,9 @@ fun DailyChallengeScreen(
                     }
                 }
             )
+        },
+        bottomBar = {
+            com.wordsearch.ui.common.AppBottomBar(current = com.wordsearch.ui.common.BottomDest.DAILY, onSelect = onBottomNav)
         }
     ) { paddingValues ->
         Box(

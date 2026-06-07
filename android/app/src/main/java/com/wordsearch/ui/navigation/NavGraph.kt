@@ -42,6 +42,21 @@ fun NavGraph(
     navController: NavHostController,
     startDestination: String
 ) {
+    // Shared handler for the persistent bottom navigation bar: jump to a primary
+    // destination, keeping Categories as the base so the back stack doesn't grow.
+    val onBottomNav: (com.wordsearch.ui.common.BottomDest) -> Unit = { dest ->
+        val route = when (dest) {
+            com.wordsearch.ui.common.BottomDest.DAILY -> Screen.DailyChallenge.route
+            com.wordsearch.ui.common.BottomDest.CATEGORIES -> Screen.Categories.route
+            com.wordsearch.ui.common.BottomDest.ACHIEVEMENTS -> Screen.Achievements.route
+            com.wordsearch.ui.common.BottomDest.LEADERBOARD -> Screen.Leaderboard.route
+        }
+        navController.navigate(route) {
+            popUpTo(Screen.Categories.route) { inclusive = false }
+            launchSingleTop = true
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = startDestination
@@ -166,7 +181,8 @@ fun NavGraph(
                 },
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings.route)
-                }
+                },
+                onBottomNav = onBottomNav
             )
         }
 
@@ -177,7 +193,8 @@ fun NavGraph(
                 },
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings.route)
-                }
+                },
+                onBottomNav = onBottomNav
             )
         }
 
@@ -189,6 +206,7 @@ fun NavGraph(
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings.route)
                 },
+                onBottomNav = onBottomNav,
                 onNavigateToGame = { attemptId, challengeId ->
                     navController.navigate(Screen.Game.createRoute(challengeId, "CHALLENGE"))
                 }
@@ -202,7 +220,8 @@ fun NavGraph(
                 },
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings.route)
-                }
+                },
+                onBottomNav = onBottomNav
             )
         }
 
@@ -213,7 +232,8 @@ fun NavGraph(
                 },
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings.route)
-                }
+                },
+                onBottomNav = onBottomNav
             )
         }
     }
