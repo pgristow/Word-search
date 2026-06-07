@@ -38,6 +38,12 @@ class GameViewModel @Inject constructor(
     private val _lastWordResult = MutableStateFlow<LastWordResult?>(null)
     val lastWordResult: StateFlow<LastWordResult?> = _lastWordResult.asStateFlow()
 
+    // Drives the celebratory word popup over the grid. New id => re-trigger animation.
+    private val _wordPopup = MutableStateFlow<WordPopup?>(null)
+    val wordPopup: StateFlow<WordPopup?> = _wordPopup.asStateFlow()
+    private var popupCounter = 0L
+    fun clearWordPopup() { _wordPopup.value = null }
+
     // Track found word paths for drawing lines
     private val _foundWordPaths = MutableStateFlow<List<Pair<String, List<Pair<Int, Int>>>>>(emptyList())
     val foundWordPaths: StateFlow<List<Pair<String, List<Pair<Int, Int>>>>> = _foundWordPaths.asStateFlow()
@@ -175,8 +181,26 @@ class GameViewModel @Inject constructor(
 
                 // Map selected cells to CellDto path for the backend
                 val cellPath = selected.map { (row, col) -> CellDto(row, col) }
+                val path = selected.toList()
 
-                // Submit to backend
+                // OPTIMISTIC: if the traced word is one of this board's target words and
+                // not yet found, confirm it instantly on-device (the server will agree),
+                // so there's no ~1s wait. The server call below just syncs the score.
+                val wordUpper = word.uppercase()
+                val targets = session.words.map { it.word.uppercase() }.toSet()
+                val optimistic = wordUpper in targets && wordUpper !in _foundWords.value.map { it.uppercase() }
+                if (optimistic) {
+                    _foundWords.value = _foundWords.value + word.lowercase()
+                    _foundWordPaths.value = _foundWordPaths.value + (word.lowercase() to path)
+                    _uiState.value = GameUiState.Playing(
+                        session = session.copy(wordsFound = session.wordsFound + 1),
+                        message = null, isSuccess = true, isBonus = false
+                    )
+                    showPopup(word, isBonus = false, score = null, coins = 0)
+                }
+                clearSelection()
+
+                // Submit to backend (authoritative score/coins/leaderboard)
                 val result = gameRepository.submitWord(
                     sessionId = session.sessionId,
                     word = word,
@@ -187,15 +211,12 @@ class GameViewModel @Inject constructor(
                 )
                 if (result.isSuccess) {
                     val response = result.getOrNull()!!
-                    handleWordSubmission(response, word, selected.toList())
-                } else {
+                    handleWordSubmission(response, word, path, optimisticallyApplied = optimistic)
+                } else if (!optimistic) {
                     _uiState.value = GameUiState.Error(
                         result.exceptionOrNull()?.message ?: "Failed to submit word"
                     )
                 }
-
-                // Clear selection
-                clearSelection()
             } catch (e: Exception) {
                 Timber.e(e, "Error submitting word")
                 _uiState.value = GameUiState.Error(e.message ?: "An error occurred")
@@ -203,82 +224,74 @@ class GameViewModel @Inject constructor(
         }
     }
 
-    private fun handleWordSubmission(response: WordSubmissionResponse, word: String, path: List<Pair<Int, Int>>) {
+    private fun showPopup(word: String, isBonus: Boolean, score: Int?, coins: Long) {
+        popupCounter += 1
+        _wordPopup.value = WordPopup(popupCounter, word.uppercase(), isBonus, score, coins)
+    }
+
+    private fun handleWordSubmission(
+        response: WordSubmissionResponse,
+        word: String,
+        path: List<Pair<Int, Int>>,
+        optimisticallyApplied: Boolean = false
+    ) {
         val currentState = _uiState.value
         if (currentState !is GameUiState.Playing) return
 
-        // Keep coin balance in sync
-        if (response.coinBalance > 0L) {
-            _coinBalance.value = response.coinBalance
-        }
+        if (response.coinBalance > 0L) _coinBalance.value = response.coinBalance
 
         if (response.correct) {
-            // Save the path for this word (for drawing lines)
-            _foundWordPaths.value = _foundWordPaths.value + (word.lowercase() to path)
-
-            // Emit the score breakdown result for UI feedback
             _lastWordResult.value = LastWordResult(
-                word = word,
-                score = response.score,
-                isBonus = response.isBonus,
-                coinsEarned = response.coinsEarned,
-                scoreBreakdown = response.scoreBreakdown
+                word, response.score, response.isBonus, response.coinsEarned, response.scoreBreakdown
             )
 
             if (response.isBonus) {
-                // Bonus words are NOT target words — track them separately
                 _bonusWords.value = _bonusWords.value + word.lowercase()
-
-                // Update session score/combo without incrementing wordsFound target counter
-                val updatedSession = currentState.session.copy(
-                    currentScore = response.score,
-                    currentCombo = response.combo
-                )
+                _foundWordPaths.value = _foundWordPaths.value + (word.lowercase() to path)
                 _uiState.value = GameUiState.Playing(
-                    session = updatedSession,
-                    message = response.message,
-                    isSuccess = true,
-                    isBonus = true
+                    session = currentState.session.copy(currentScore = response.score, currentCombo = response.combo),
+                    message = null, isSuccess = true, isBonus = true
                 )
+                showPopup(word, true, response.score, response.coinsEarned)
             } else {
-                // Regular target word
-                _foundWords.value = _foundWords.value + word.lowercase()
-
-                // Update session with new score and combo
+                if (!optimisticallyApplied) {
+                    _foundWords.value = _foundWords.value + word.lowercase()
+                    _foundWordPaths.value = _foundWordPaths.value + (word.lowercase() to path)
+                }
+                val wordsFound =
+                    if (optimisticallyApplied) currentState.session.wordsFound
+                    else currentState.session.wordsFound + 1
                 val updatedSession = currentState.session.copy(
-                    currentScore = response.score,
-                    currentCombo = response.combo,
-                    wordsFound = currentState.session.wordsFound + 1
+                    currentScore = response.score, currentCombo = response.combo, wordsFound = wordsFound
                 )
-
-                _uiState.value = GameUiState.Playing(
-                    session = updatedSession,
-                    message = response.message,
-                    isSuccess = true,
-                    isBonus = false
-                )
-
-                // Check if level up
+                _uiState.value = GameUiState.Playing(updatedSession, null, true, false)
+                // Fill in the score on the already-shown popup, or show a fresh one.
+                if (optimisticallyApplied) {
+                    _wordPopup.value = _wordPopup.value?.copy(score = response.score, coins = response.coinsEarned)
+                } else {
+                    showPopup(word, false, response.score, response.coinsEarned)
+                }
                 if (response.levelUp) {
                     _uiState.value = GameUiState.LevelUp(
-                        oldLevel = currentState.session.level,
-                        newLevel = response.newLevel ?: currentState.session.level,
-                        session = updatedSession
+                        currentState.session.level, response.newLevel ?: currentState.session.level, updatedSession
                     )
                 }
-
-                // Check if all target words found
-                if (updatedSession.wordsFound >= updatedSession.targetWordCount) {
-                    endGame()
-                }
+                if (updatedSession.wordsFound >= updatedSession.targetWordCount) endGame()
             }
+        } else if (optimisticallyApplied) {
+            // Server disagreed with our optimistic accept — roll it back.
+            _foundWords.value = _foundWords.value - word.lowercase()
+            _foundWordPaths.value = _foundWordPaths.value.filterNot { it.first == word.lowercase() }
+            _wordPopup.value = null
+            _uiState.value = GameUiState.Playing(
+                session = currentState.session.copy(wordsFound = maxOf(0, currentState.session.wordsFound - 1)),
+                message = null, isSuccess = false
+            )
+            _hintMessage.value = response.message
         } else {
             _lastWordResult.value = null
-            _uiState.value = GameUiState.Playing(
-                session = currentState.session,
-                message = response.message,
-                isSuccess = false
-            )
+            _uiState.value = GameUiState.Playing(currentState.session, message = null, isSuccess = false)
+            _hintMessage.value = response.message
         }
     }
 
@@ -365,6 +378,15 @@ class GameViewModel @Inject constructor(
         }
     }
 }
+
+// Drives the celebratory popup over the grid. A new [id] re-triggers the pop animation.
+data class WordPopup(
+    val id: Long,
+    val word: String,
+    val isBonus: Boolean,
+    val score: Int?,
+    val coins: Long
+)
 
 // Holds the breakdown of the last correctly-submitted word for transient UI display
 data class LastWordResult(

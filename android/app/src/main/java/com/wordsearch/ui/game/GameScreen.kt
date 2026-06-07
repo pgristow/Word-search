@@ -94,17 +94,6 @@ fun GameScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Word Search") },
-                navigationIcon = {
-                    IconButton(onClick = {
-                        if (isCasualMode && uiState is GameUiState.Playing) {
-                            viewModel.saveCasualProgress()
-                        } else {
-                            onNavigateBack()
-                        }
-                    }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
                 actions = {
                     // Hint button — visible while playing
                     if (uiState is GameUiState.Playing) {
@@ -238,104 +227,96 @@ fun GamePlayingContent(
         // Score and combo
         GameStatsRow(session, isCasualMode, bonusWords.size)
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // Feedback message
-        AnimatedVisibility(
-            visible = message != null,
-            enter = fadeIn(),
-            exit = fadeOut()
-        ) {
-            message?.let {
-                if (isBonus) {
-                    // Gold/amber bonus word card
-                    BonusWordFeedback(
-                        message = it,
-                        lastWordResult = lastWordResult
-                    )
-                } else {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isSuccess == true) {
-                                MaterialTheme.colorScheme.primaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.errorContainer
-                            }
-                        )
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = it,
-                                style = MaterialTheme.typography.bodyMedium,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            // Score breakdown for regular correct words
-                            val result = lastWordResult
-                            if (isSuccess == true && result != null) {
-                                ScoreBreakdownRow(result)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Show selected word
-        if (selectedCells.isNotEmpty()) {
-            val selectedWord = buildString {
-                selectedCells.forEach { (row, col) ->
-                    if (row in session.grid.indices && col in session.grid[row].indices) {
-                        append(session.grid[row][col])
-                    }
-                }
-            }
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                )
-            ) {
-                Text(
-                    text = "Selected: $selectedWord (${selectedCells.size} letters)",
-                    modifier = Modifier.padding(8.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Word grid
-        WordGrid(
-            grid = session.grid,
-            selectedCells = selectedCells,
-            foundWordPaths = foundWordPaths,
-            hintedCells = hintedCells,
-            onSelectionStart = { row, col -> viewModel.startSelection(row, col) },
-            onSelectionUpdate = { row, col -> viewModel.updateSelection(row, col, session.gridSize) },
-            onSelectionComplete = { viewModel.submitWord() },
-            modifier = Modifier.weight(1f, fill = false)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Horizontal scrollable target word list
+        // Word list at the top (found words strike through in place, so it never resizes
+        // and the grid below stays put).
         HorizontalWordsList(
             words = session.words.map { it.word },
             foundWords = foundWords,
             isCasualMode = isCasualMode
         )
 
-        // Bonus words section — only visible when at least one bonus word has been found
         if (bonusWords.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             BonusWordsList(bonusWords = bonusWords)
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Grid area — fixed position; the found-word popup overlays it without moving anything.
+        val popup by viewModel.wordPopup.collectAsState()
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            contentAlignment = Alignment.Center
+        ) {
+            WordGrid(
+                grid = session.grid,
+                selectedCells = selectedCells,
+                foundWordPaths = foundWordPaths,
+                hintedCells = hintedCells,
+                onSelectionStart = { row, col -> viewModel.startSelection(row, col) },
+                onSelectionUpdate = { row, col -> viewModel.updateSelection(row, col, session.gridSize) },
+                onSelectionComplete = { viewModel.submitWord() }
+            )
+            WordFoundPopup(popup = popup, onDone = { viewModel.clearWordPopup() })
+        }
+    }
+}
+
+@Composable
+fun BoxScope.WordFoundPopup(popup: com.wordsearch.ui.game.WordPopup?, onDone: () -> Unit) {
+    if (popup == null) return
+    val scale = remember(popup.id) { Animatable(0.3f) }
+    val alpha = remember(popup.id) { Animatable(0f) }
+    LaunchedEffect(popup.id) {
+        launch { alpha.animateTo(1f, tween(160)) }
+        scale.animateTo(1.18f, tween(280, easing = FastOutSlowInEasing))
+        scale.animateTo(1.0f, tween(160))
+        delay(1300)                       // hold (~2s total)
+        launch { scale.animateTo(0.9f, tween(280)) }
+        alpha.animateTo(0f, tween(280))
+        onDone()
+    }
+    Card(
+        modifier = Modifier
+            .align(Alignment.Center)
+            .graphicsLayer {
+                scaleX = scale.value; scaleY = scale.value; this.alpha = alpha.value
+            },
+        colors = CardDefaults.cardColors(
+            containerColor = if (popup.isBonus) BonusGoldContainer else MaterialTheme.colorScheme.primaryContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 28.dp, vertical = 18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (popup.isBonus) {
+                Text(
+                    "BONUS!",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Black,
+                    color = BonusGold
+                )
+            }
+            Text(
+                popup.word,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Black,
+                color = if (popup.isBonus) BonusGold else MaterialTheme.colorScheme.primary
+            )
+            popup.score?.let { s ->
+                Text(
+                    "+$s" + (if (popup.coins > 0) "   +${popup.coins}⊙" else ""),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
