@@ -701,14 +701,19 @@ fun WordGrid(
                     val burst = paintBursts[processed]; processed++
                     if (burst.cells.isEmpty()) continue
                     val color = getWordColor(burst.colorIndex)
-                    val count = (5 + burst.score / 60).coerceIn(6, 70) // more score -> more paint
+                    // Count is proportional to THIS word's score (not the total), so small
+                    // words get a small splash and big words get a big one.
+                    val count = (burst.score / 100).coerceIn(2, 45)
                     repeat(count) {
                         val (cr, cc) = burst.cells.random()
                         val ang = kotlin.random.Random.nextFloat() * 6.2832f
-                        val rad = cellPx * (0.2f + kotlin.random.Random.nextFloat() * 1.9f)
+                        // Stay near the word's own tiles so the paint looks stuck to them
+                        // rather than flung across the background.
+                        val rad = cellPx * (kotlin.random.Random.nextFloat() * 0.85f)
                         val x = (cc + 0.5f) * cellPx + kotlin.math.cos(ang) * rad
                         val y = (cr + 0.5f) * cellPx + kotlin.math.sin(ang) * rad
-                        val size = cellPx * (0.16f + kotlin.random.Random.nextFloat() * 0.28f)
+                        // ~50% smaller blobs than before.
+                        val size = cellPx * (0.08f + kotlin.random.Random.nextFloat() * 0.14f)
                         val m = PaintMark(x, y, size, color, Animatable(0f))
                         marks.add(m)
                         scope.launch { m.grow.animateTo(1f, tween(360, easing = FastOutSlowInEasing)) }
@@ -717,8 +722,8 @@ fun WordGrid(
             }
             Canvas(modifier = Modifier.fillMaxSize()) {
                 marks.forEach { m ->
-                    // Persistent, semi-opaque blob; blooms to full size then stays.
-                    drawCircle(m.color.copy(alpha = 0.55f), radius = m.size * m.grow.value, center = Offset(m.x, m.y))
+                    // Persistent, fairly solid blob so it reads as paint stuck to the tile.
+                    drawCircle(m.color.copy(alpha = 0.72f), radius = m.size * m.grow.value, center = Offset(m.x, m.y))
                 }
             }
         }
