@@ -50,6 +50,17 @@ class GameViewModel @Inject constructor(
     private val _foundWordPaths = MutableStateFlow<List<Pair<String, List<Pair<Int, Int>>>>>(emptyList())
     val foundWordPaths: StateFlow<List<Pair<String, List<Pair<Int, Int>>>>> = _foundWordPaths.asStateFlow()
 
+    // Paint bursts: one per found word, used to splatter colour radiating from the word.
+    // Accumulates over the board; reset on a new game.
+    private val _paintBursts = MutableStateFlow<List<PaintBurst>>(emptyList())
+    val paintBursts: StateFlow<List<PaintBurst>> = _paintBursts.asStateFlow()
+    private var paintCounter = 0L
+    private fun emitPaintBurst(path: List<Pair<Int, Int>>, score: Int) {
+        paintCounter += 1
+        val colorIndex = (_foundWordPaths.value.size - 1).coerceAtLeast(0)
+        _paintBursts.value = _paintBursts.value + PaintBurst(paintCounter, path, colorIndex, score)
+    }
+
     // Hint: cells of the most-recently hinted word (cleared when a new selection starts)
     private val _hintedCells = MutableStateFlow<List<Pair<Int, Int>>>(emptyList())
     val hintedCells: StateFlow<List<Pair<Int, Int>>> = _hintedCells.asStateFlow()
@@ -83,6 +94,7 @@ class GameViewModel @Inject constructor(
                     _bonusWords.value = emptySet()
                     _lastWordResult.value = null
                     _foundWordPaths.value = emptyList()
+                    _paintBursts.value = emptyList()
                     _hintedCells.value = emptyList()
                     _selectedCells.value = emptyList()
                     _wordPopup.value = null
@@ -218,6 +230,7 @@ class GameViewModel @Inject constructor(
                         message = null, isSuccess = true, isBonus = false
                     )
                     showPopup(word, isBonus = false, score = localScore, coins = 0)
+                    emitPaintBurst(path, localScore)
                     // End the game as soon as every listed word is found — don't wait on
                     // the server round-trip or a possibly-mismatched targetWordCount.
                     finishGameIfComplete()
@@ -294,6 +307,7 @@ class GameViewModel @Inject constructor(
                     message = null, isSuccess = true, isBonus = true
                 )
                 showPopup(word, true, response.score, response.coinsEarned)
+                emitPaintBurst(path, response.score)
             }
             response.correct -> {
                 // Target word. If we applied it optimistically, the score/count/popup are
@@ -312,6 +326,7 @@ class GameViewModel @Inject constructor(
                     )
                     _uiState.value = GameUiState.Playing(updatedSession, null, true, false)
                     showPopup(word, false, response.score, response.coinsEarned)
+                    emitPaintBurst(path, response.score)
                 }
                 if (response.levelUp) {
                     _uiState.value = GameUiState.LevelUp(
@@ -456,6 +471,17 @@ data class WordPopup(
     val score: Int?,
     val coins: Long,
     val isError: Boolean = false
+)
+
+/**
+ * One found word's paint splatter. [cells] is the word's grid path (paint radiates from
+ * it), [colorIndex] picks the word's colour, and [score] drives how much paint is flung.
+ */
+data class PaintBurst(
+    val id: Long,
+    val cells: List<Pair<Int, Int>>,
+    val colorIndex: Int,
+    val score: Int
 )
 
 // Holds the breakdown of the last correctly-submitted word for transient UI display

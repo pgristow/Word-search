@@ -248,6 +248,7 @@ fun GamePlayingContent(
     val foundWords by viewModel.foundWords.collectAsState()
     val bonusWords by viewModel.bonusWords.collectAsState()
     val foundWordPaths by viewModel.foundWordPaths.collectAsState()
+    val paintBursts by viewModel.paintBursts.collectAsState()
     val lastWordResult by viewModel.lastWordResult.collectAsState()
     val hintedCells by viewModel.hintedCells.collectAsState()
     val isCasualMode = gameMode == "CASUAL"
@@ -287,6 +288,7 @@ fun GamePlayingContent(
                 selectedCells = selectedCells,
                 foundWordPaths = foundWordPaths,
                 hintedCells = hintedCells,
+                paintBursts = paintBursts,
                 onSelectionStart = { row, col -> viewModel.startSelection(row, col) },
                 onSelectionUpdate = { row, col -> viewModel.updateSelection(row, col, session.gridSize) },
                 onSelectionComplete = { viewModel.submitWord() }
@@ -583,6 +585,7 @@ fun WordGrid(
     selectedCells: List<Pair<Int, Int>>,
     foundWordPaths: List<Pair<String, List<Pair<Int, Int>>>>,
     hintedCells: List<Pair<Int, Int>> = emptyList(),
+    paintBursts: List<PaintBurst> = emptyList(),
     onSelectionStart: (Int, Int) -> Unit,
     onSelectionUpdate: (Int, Int) -> Unit,
     onSelectionComplete: () -> Unit,
@@ -682,66 +685,53 @@ fun WordGrid(
                 }
             }
 
-            // 3) Paint splats: when a new word is found, fling a handful of colourful blobs
-            //    onto random tiles that bloom then fade — a playful "paint splash" over the
-            //    board. Purely an overlay; it never moves any tile.
+            // 3) Paint splatter — each found word flings colourful blobs that RADIATE out
+            //    from the word's cells and PERSIST on the board. The number of blobs scales
+            //    with the word's score, so big words paint more. Pure overlay; semi-opaque
+            //    so the letters still read through.
             val scope = rememberCoroutineScope()
-            val splats = remember { mutableStateListOf<Splat>() }
-            var lastFoundCount by remember { mutableStateOf(foundWordPaths.size) }
-            LaunchedEffect(foundWordPaths.size) {
-                if (foundWordPaths.size > lastFoundCount) {
-                    val color = getWordColor(foundWordPaths.size - 1)
-                    repeat(9) {
-                        val r = kotlin.random.Random.nextInt(rows)
-                        val c = kotlin.random.Random.nextInt(cols)
-                        val s = Splat(
-                            x = (c + 0.5f) * cellPx,
-                            y = (r + 0.5f) * cellPx,
-                            color = color,
-                            anim = Animatable(0f),
-                            seed = kotlin.random.Random.nextFloat()
-                        )
-                        splats.add(s)
-                        scope.launch {
-                            s.anim.animateTo(1f, tween(640, easing = FastOutSlowInEasing))
-                            splats.remove(s)
-                        }
+            val marks = remember { mutableStateListOf<PaintMark>() }
+            var processed by remember { mutableStateOf(0) }
+            // Wipe the paint when a fresh board loads (no found words yet).
+            LaunchedEffect(foundWordPaths.isEmpty()) {
+                if (foundWordPaths.isEmpty()) { marks.clear(); processed = 0 }
+            }
+            LaunchedEffect(paintBursts.size) {
+                while (processed < paintBursts.size) {
+                    val burst = paintBursts[processed]; processed++
+                    if (burst.cells.isEmpty()) continue
+                    val color = getWordColor(burst.colorIndex)
+                    val count = (5 + burst.score / 60).coerceIn(6, 70) // more score -> more paint
+                    repeat(count) {
+                        val (cr, cc) = burst.cells.random()
+                        val ang = kotlin.random.Random.nextFloat() * 6.2832f
+                        val rad = cellPx * (0.2f + kotlin.random.Random.nextFloat() * 1.9f)
+                        val x = (cc + 0.5f) * cellPx + kotlin.math.cos(ang) * rad
+                        val y = (cr + 0.5f) * cellPx + kotlin.math.sin(ang) * rad
+                        val size = cellPx * (0.16f + kotlin.random.Random.nextFloat() * 0.28f)
+                        val m = PaintMark(x, y, size, color, Animatable(0f))
+                        marks.add(m)
+                        scope.launch { m.grow.animateTo(1f, tween(360, easing = FastOutSlowInEasing)) }
                     }
                 }
-                lastFoundCount = foundWordPaths.size
             }
             Canvas(modifier = Modifier.fillMaxSize()) {
-                splats.forEach { s ->
-                    val p = s.anim.value
-                    val grow = if (p < 0.25f) p / 0.25f else 1f          // quick bloom
-                    val alpha = (1f - p) * 0.8f                          // then fade
-                    val blob = cellPx * 0.40f * grow
-                    drawCircle(s.color.copy(alpha = alpha), radius = blob, center = Offset(s.x, s.y))
-                    // a few droplets flung around the main blob for a splat feel
-                    for (k in 0 until 3) {
-                        val ang = s.seed * 6.2832f + k * 2.094f
-                        val dist = cellPx * 0.55f * grow
-                        val dx = kotlin.math.cos(ang) * dist
-                        val dy = kotlin.math.sin(ang) * dist
-                        drawCircle(
-                            s.color.copy(alpha = alpha * 0.8f),
-                            radius = cellPx * 0.12f * grow,
-                            center = Offset(s.x + dx, s.y + dy)
-                        )
-                    }
+                marks.forEach { m ->
+                    // Persistent, semi-opaque blob; blooms to full size then stays.
+                    drawCircle(m.color.copy(alpha = 0.55f), radius = m.size * m.grow.value, center = Offset(m.x, m.y))
                 }
             }
         }
     }
 }
 
-/** A transient paint blob flung onto the board when a word is found. */
-private class Splat(
+/** A persistent paint blob splattered onto the board when a word is found. */
+private class PaintMark(
     val x: Float,
     val y: Float,
+    val size: Float,
     val color: Color,
-    val anim: Animatable<Float, AnimationVector1D>,
-    val seed: Float
+    val grow: Animatable<Float, AnimationVector1D>
 )
 
 // Generate different colors for each found word.
