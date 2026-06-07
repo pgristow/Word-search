@@ -270,17 +270,24 @@ class GameSessionService(
             coinBalance = updatedProgress.coins
         }
 
+        // Full, honest breakdown of every term that contributed to `score`.
+        val core = 100 * resolvedWord.length + scoringService.lengthBonus(resolvedWord.length)
+        val isClassic = scoreMode == ScoreMode.CLASSIC_TARGET
+        val orientationApplies = scoreMode != ScoreMode.CASUAL
         val breakdown = mapOf(
             "base" to 100 * resolvedWord.length,
             "lengthBonus" to scoringService.lengthBonus(resolvedWord.length),
-            "comboMultiplier" to if (scoreMode == ScoreMode.CLASSIC_TARGET)
-                scoringService.comboMultiplier(currentCombo) else 1
+            "reverseBonus" to if (orientationApplies && isReversed) (core * 0.5).toInt() else 0,
+            "diagonalBonus" to if (orientationApplies && diagonal) (core * 0.25).toInt() else 0,
+            "speed" to if (isClassic) minOf(100, maxOf(0, (60 - timeElapsed) * 2)) else 0,
+            "comboMultiplier" to if (isClassic) scoringService.comboMultiplier(currentCombo) else 1
         )
 
         return WordSubmissionResponse(
             correct = true,
             score = score,
             totalScore = updatedProgress.totalScore,
+            sessionScore = updatedSession.totalScore.toInt(),
             currentCombo = currentCombo,
             combo = currentCombo,
             levelUp = leveledUp,

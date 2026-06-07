@@ -90,6 +90,9 @@ data class WordSubmissionResponse(
     val correct: Boolean,
     @SerializedName("score")
     val score: Int,
+    // Authoritative running session score — the client hard-sets the scoreboard to this.
+    @SerializedName("sessionScore")
+    val sessionScore: Int = 0,
     @SerializedName("combo")
     val combo: Int,
     @SerializedName("levelUp")

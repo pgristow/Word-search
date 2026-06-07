@@ -26,6 +26,9 @@ data class WordSubmissionResponse(
     val correct: Boolean,
     val score: Int,
     val totalScore: Long = 0,
+    // Authoritative running score for THIS session (sum of words found this game). The
+    // client hard-sets its scoreboard to this so the displayed score can never drift.
+    val sessionScore: Int = 0,
     val currentCombo: Int = 0,
     val combo: Int = 0, // Deprecated, use currentCombo
     val levelUp: Boolean = false,

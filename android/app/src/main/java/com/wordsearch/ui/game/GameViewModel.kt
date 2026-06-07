@@ -297,13 +297,19 @@ class GameViewModel @Inject constructor(
 
         if (response.coinBalance > 0L) _coinBalance.value = response.coinBalance
 
+        // Authoritative session score from the server. If present (>0), hard-set the
+        // scoreboard to it so the displayed score can never drift from the server's record;
+        // fall back to incrementing locally only if an older server doesn't send it.
+        fun reconciledScore(prev: Int) =
+            if (response.sessionScore > 0) response.sessionScore else prev + response.score
+
         when {
             response.correct && response.isBonus -> {
                 _lastWordResult.value = LastWordResult(word, response.score, true, response.coinsEarned, response.scoreBreakdown)
                 _bonusWords.value = _bonusWords.value + word.lowercase()
                 _foundWordPaths.value = _foundWordPaths.value + (word.lowercase() to path)
                 _uiState.value = GameUiState.Playing(
-                    session = currentState.session.copy(currentScore = currentState.session.currentScore + response.score),
+                    session = currentState.session.copy(currentScore = reconciledScore(currentState.session.currentScore)),
                     message = null, isSuccess = true, isBonus = true
                 )
                 showPopup(word, true, response.score, response.coinsEarned)
@@ -311,16 +317,21 @@ class GameViewModel @Inject constructor(
             }
             response.correct -> {
                 // Target word. If we applied it optimistically, the score/count/popup are
-                // already shown; just handle level-up / completion. Otherwise apply it now.
+                // already shown; just reconcile the score to the server's authoritative
+                // session total and handle level-up / completion. Otherwise apply it now.
                 _lastWordResult.value = LastWordResult(word, response.score, false, response.coinsEarned, response.scoreBreakdown)
                 val updatedSession: GameSession
                 if (optimisticallyApplied) {
-                    updatedSession = currentState.session
+                    updatedSession = currentState.session.copy(
+                        currentScore = reconciledScore(currentState.session.currentScore - response.score),
+                        currentCombo = response.combo
+                    )
+                    _uiState.value = GameUiState.Playing(updatedSession, null, true, false)
                 } else {
                     _foundWords.value = _foundWords.value + word.lowercase()
                     _foundWordPaths.value = _foundWordPaths.value + (word.lowercase() to path)
                     updatedSession = currentState.session.copy(
-                        currentScore = currentState.session.currentScore + response.score,
+                        currentScore = reconciledScore(currentState.session.currentScore),
                         currentCombo = response.combo,
                         wordsFound = currentState.session.wordsFound + 1
                     )
