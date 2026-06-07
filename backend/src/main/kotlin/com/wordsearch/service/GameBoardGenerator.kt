@@ -69,6 +69,11 @@ class GameBoardGenerator(
             }
         }
 
+        // Safety net: forcing the longest word onto a diagonal can fail (a word longer
+        // than the grid has no room on any diagonal), leaving a board with none. Guarantee
+        // at least one by re-placing a fitting word diagonally if needed.
+        ensureDiagonal(grid, placedWords, config)
+
         // Fill empty cells with random letters
         fillEmptyCells(grid, config.distractorLetters)
 
@@ -322,6 +327,45 @@ class GameBoardGenerator(
             val c = placement.col + dc * i
             grid[r][c] = word[i]
         }
+    }
+
+    /**
+     * Guarantees at least one diagonal word on the board. If none of the placed words
+     * landed on a diagonal, takes a fitting word (shortest first — most likely to fit a
+     * diagonal run, which is at most gridSize cells long), clears it, and re-places it on
+     * a diagonal. No-op when the config disallows diagonals or a diagonal already exists.
+     */
+    private fun ensureDiagonal(
+        grid: Array<CharArray>,
+        placedWords: MutableList<PlacedWord>,
+        config: DifficultyConfig
+    ) {
+        val diagonalDirs = config.allowedDirections.filter { it.isDiagonal }
+        if (diagonalDirs.isEmpty()) return
+        if (placedWords.any { it.direction.isDiagonal }) return
+
+        // Shortest first so the diagonal run (max gridSize cells) is most likely to fit.
+        for (pw in placedWords.sortedBy { it.displayWord.length }) {
+            val without = placedWords.filter { it !== pw }
+            val testGrid = buildGridFrom(grid.size, without)
+            val diag = findInterlockingPlacement(
+                testGrid, pw.displayWord, config, preferIntersection = false, restrictTo = diagonalDirs
+            ) ?: continue
+            placeWord(testGrid, pw.displayWord, diag)
+            // Commit the reworked grid and update the word's recorded placement.
+            for (r in grid.indices) for (c in grid[r].indices) grid[r][c] = testGrid[r][c]
+            placedWords[placedWords.indexOf(pw)] = pw.copy(
+                startRow = diag.row, startCol = diag.col, direction = diag.direction
+            )
+            return
+        }
+    }
+
+    /** Builds a fresh grid containing exactly the given placed words (rest left blank). */
+    private fun buildGridFrom(size: Int, words: List<PlacedWord>): Array<CharArray> {
+        val g = Array(size) { CharArray(size) { ' ' } }
+        for (w in words) placeWord(g, w.displayWord, Placement(w.startRow, w.startCol, w.direction))
+        return g
     }
 
     /**

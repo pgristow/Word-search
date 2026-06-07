@@ -64,6 +64,8 @@ class GameViewModel @Inject constructor(
 
     private var gameStartTime: Long = 0
     private var currentSession: GameSession? = null
+    // Guards against the end-of-game transition firing more than once.
+    private var finishing = false
 
     fun startGame(categoryId: String, gameMode: String = "CLASSIC") {
         viewModelScope.launch {
@@ -80,6 +82,11 @@ class GameViewModel @Inject constructor(
                     _foundWords.value = session.foundWords.map { it.lowercase() }.toSet()
                     _bonusWords.value = emptySet()
                     _lastWordResult.value = null
+                    _foundWordPaths.value = emptyList()
+                    _hintedCells.value = emptyList()
+                    _selectedCells.value = emptyList()
+                    _wordPopup.value = null
+                    finishing = false
 
                     // Relaxing background music for casual mode only.
                     if (gameMode.equals("CASUAL", ignoreCase = true)) soundManager.startCasualMusic()
@@ -211,6 +218,9 @@ class GameViewModel @Inject constructor(
                         message = null, isSuccess = true, isBonus = false
                     )
                     showPopup(word, isBonus = false, score = localScore, coins = 0)
+                    // End the game as soon as every listed word is found — don't wait on
+                    // the server round-trip or a possibly-mismatched targetWordCount.
+                    finishGameIfComplete()
                 }
                 clearSelection()
 
@@ -308,7 +318,8 @@ class GameViewModel @Inject constructor(
                         currentState.session.level, response.newLevel ?: currentState.session.level, updatedSession
                     )
                 }
-                if (updatedSession.wordsFound >= updatedSession.targetWordCount) endGame()
+                // Backstop completion check (covers the non-optimistic path).
+                finishGameIfComplete()
             }
             optimisticallyApplied -> {
                 // Server disagreed with an optimistic accept — roll it back.
@@ -361,6 +372,24 @@ class GameViewModel @Inject constructor(
         if (currentState is GameUiState.LevelUp) {
             _uiState.value = GameUiState.Playing(currentState.session)
         }
+    }
+
+    /**
+     * Ends the game once every listed target word has been found. This is the source of
+     * truth for "all words found" — it compares the displayed word list against the found
+     * set rather than trusting a numeric count, so it's robust to count drift or a
+     * mismatched server targetWordCount. Routes casual games to the casual save flow.
+     */
+    private fun finishGameIfComplete() {
+        if (finishing) return
+        val session = (_uiState.value as? GameUiState.Playing)?.session ?: return
+        val targets = session.words.map { it.word.lowercase() }
+        if (targets.isEmpty()) return
+        val found = _foundWords.value.map { it.lowercase() }.toSet()
+        if (!found.containsAll(targets)) return
+
+        finishing = true
+        if (session.gameMode.equals("CASUAL", ignoreCase = true)) saveCasualProgress() else endGame()
     }
 
     fun endGame() {

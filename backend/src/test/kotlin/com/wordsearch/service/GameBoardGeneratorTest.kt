@@ -260,6 +260,20 @@ class GameBoardGeneratorTest {
     }
 
     @Test
+    fun `test board still has a diagonal when the longest word cannot fit one`() {
+        // Longest word (11) can't fit any 9x9 diagonal (max 9); the safety net must still
+        // place one of the shorter words on a diagonal.
+        val words = listOf("WOODPECKER", "CAT", "DOG", "BIRD", "FISH", "LION", "WOLF")
+        repeat(20) {
+            val gameBoard = gameBoardGenerator.generateBoard(1, words, "Animals")
+            assertTrue(
+                gameBoard.placedWords.any { it.direction.isDiagonal },
+                "Safety net should guarantee a diagonal even when the longest word can't fit one"
+            )
+        }
+    }
+
+    @Test
     fun `test grid is fully filled with letters`() {
         val words = listOf("CAT", "DOG")
         val gameBoard = gameBoardGenerator.generateBoard(1, words, "Animals")

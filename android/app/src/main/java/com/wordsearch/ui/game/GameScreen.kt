@@ -195,7 +195,8 @@ fun GameScreen(
                         casualBest = state.casualBest,
                         casualGames = state.casualGames,
                         casualWeekly = state.casualWeekly,
-                        onNavigateBack = onGameComplete
+                        onPlayAgain = { viewModel.startGame(categoryId, gameMode) },
+                        onMainMenu = onGameComplete
                     )
                 }
 
@@ -204,7 +205,8 @@ fun GameScreen(
                         finalScore = state.finalScore,
                         wordsFound = state.wordsFound,
                         sessionDuration = state.sessionDuration,
-                        onNavigateBack = onGameComplete
+                        onPlayAgain = { viewModel.startGame(categoryId, gameMode) },
+                        onMainMenu = onGameComplete
                     )
                 }
             }
@@ -567,51 +569,41 @@ fun WordGrid(
     onSelectionComplete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var gridSize by remember { mutableStateOf(Offset.Zero) }
+    val cols = grid[0].size
+    val rows = grid.size
     val density = LocalDensity.current
 
-    BoxWithConstraints(
-        modifier = modifier
-            .fillMaxSize()
-            .aspectRatio(1f)
-            .onGloballyPositioned { coordinates ->
-                gridSize = Offset(
-                    coordinates.size.width.toFloat(),
-                    coordinates.size.height.toFloat()
-                )
-            }
-            .pointerInput(Unit) {
+    // ONE measured square is the single source of truth for cell geometry. The parent
+    // already constrains us to a square, so we just take the largest square that fits and
+    // derive cellPx (touch + line) and cellDp (tiles) from it. No second aspectRatio, no
+    // onGloballyPositioned, no weight-based layout — so touch, the connecting line, and the
+    // tiles share one identical origin and cell size and can never drift apart.
+    BoxWithConstraints(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        val sideDp = minOf(maxWidth, maxHeight)
+        val cellPx = with(density) { sideDp.toPx() } / cols
+        val cellDp = sideDp / cols
+
+        Box(modifier = Modifier
+            .size(sideDp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .pointerInput(cols, rows, cellPx) {
                 detectDragGestures(
                     onDragStart = { offset ->
-                        if (gridSize != Offset.Zero) {
-                            val cellSize = gridSize.x / grid[0].size
-                            val row = (offset.y / cellSize).toInt().coerceIn(0, grid.size - 1)
-                            val col = (offset.x / cellSize).toInt().coerceIn(0, grid[0].size - 1)
-                            onSelectionStart(row, col)
-                        }
+                        val row = (offset.y / cellPx).toInt().coerceIn(0, rows - 1)
+                        val col = (offset.x / cellPx).toInt().coerceIn(0, cols - 1)
+                        onSelectionStart(row, col)
                     },
                     onDrag = { change, _ ->
                         change.consume()
-                        if (gridSize != Offset.Zero) {
-                            val cellSize = gridSize.x / grid[0].size
-                            val row = (change.position.y / cellSize).toInt().coerceIn(0, grid.size - 1)
-                            val col = (change.position.x / cellSize).toInt().coerceIn(0, grid[0].size - 1)
-                            onSelectionUpdate(row, col)
-                        }
+                        val row = (change.position.y / cellPx).toInt().coerceIn(0, rows - 1)
+                        val col = (change.position.x / cellPx).toInt().coerceIn(0, cols - 1)
+                        onSelectionUpdate(row, col)
                     },
-                    onDragEnd = {
-                        onSelectionComplete()
-                    },
-                    onDragCancel = {
-                        // Clear selection on cancel
-                    }
+                    onDragEnd = { onSelectionComplete() },
+                    onDragCancel = { }
                 )
             }
-    ) {
-        Box(modifier = Modifier
-            .fillMaxSize()
-            .clip(RoundedCornerShape(20.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             // Per-cell highlight state
             val selectedSet = selectedCells.toHashSet()
@@ -626,13 +618,11 @@ fun WordGrid(
                 }
             }
 
-            // 1) Connecting line BEHIND the tiles — shows through the gaps so you can
-            //    see what's linked. Capped at the first/last tile centres (no bleed).
+            // 1) Connecting line BEHIND the tiles — uses the SAME cellPx/origin as touch.
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val cellSize = size.width / grid[0].size
-                val stroke = cellSize * 0.46f
+                val stroke = cellPx * 0.42f
                 fun center(cell: Pair<Int, Int>) =
-                    Offset((cell.second + 0.5f) * cellSize, (cell.first + 0.5f) * cellSize)
+                    Offset((cell.second + 0.5f) * cellPx, (cell.first + 0.5f) * cellPx)
                 foundWordPaths.forEachIndexed { index, (_, path) ->
                     if (path.size >= 2) {
                         drawLine(
@@ -649,11 +639,11 @@ fun WordGrid(
                 }
             }
 
-            // 2) Letter tiles ON TOP — each tile is highlighted by its own state, so the
-            //    actual selected tiles light up (not just a line).
+            // 2) Letter tiles ON TOP — explicit cellDp sizing (not weight) so every tile
+            //    lines up 1:1 with the touch cell and the line.
             Column(modifier = Modifier.fillMaxSize()) {
                 grid.forEachIndexed { r, row ->
-                    Row(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                    Row(modifier = Modifier.fillMaxWidth().height(cellDp)) {
                         row.forEachIndexed { c, char ->
                             val cell = r to c
                             val isSelected = selectedSet.contains(cell)
@@ -667,7 +657,7 @@ fun WordGrid(
                                 isFound -> { tileColor = foundColorByCell[cell]!!; textColor = Color.White }
                                 else -> { tileColor = MaterialTheme.colorScheme.surface; textColor = MaterialTheme.colorScheme.onSurface }
                             }
-                            GridCell(char, Modifier.weight(1f).fillMaxHeight(), tileColor, textColor, isFound, foundOrderByCell[cell] ?: 0)
+                            GridCell(char, Modifier.width(cellDp).fillMaxHeight(), tileColor, textColor, isFound, foundOrderByCell[cell] ?: 0)
                         }
                     }
                 }
@@ -713,15 +703,16 @@ fun GridCell(
             flip.snapTo(0f) // rest exactly where it started
         }
     }
-    // Fills the cell its parent allotted (via weight) so the visible tile lines up
-    // exactly with the touch + highlight grid. Font scales with the tile so the bigger
-    // grids stay legible.
+    // Fills the exact cell its parent allotted so the visible tile lines up 1:1 with the
+    // touch + line grid. A hairline 1dp inset only separates neighbours visually without
+    // pulling the highlight away from the cell the user actually touched. Font scales with
+    // the tile so the bigger grids stay legible.
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         val fontSp = (maxWidth.value * 0.5f).sp
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(3.dp)
+                .padding(1.dp)
                 .graphicsLayer {
                     rotationY = flip.value
                     translationY = -lift.value * 9.dp.toPx()
@@ -902,7 +893,8 @@ fun GameOverScreen(
     casualBest: Long = 0,
     casualGames: Int = 0,
     casualWeekly: Long = 0,
-    onNavigateBack: () -> Unit
+    onPlayAgain: () -> Unit,
+    onMainMenu: () -> Unit
 ) {
     val isCasual = casualGames > 0
     Column(
@@ -977,10 +969,21 @@ fun GameOverScreen(
         Spacer(modifier = Modifier.height(32.dp))
 
         Button(
-            onClick = onNavigateBack,
+            onClick = onPlayAgain,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Back to Categories")
+            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Play Again")
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        OutlinedButton(
+            onClick = onMainMenu,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Default.Home, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Main Menu")
         }
     }
 }
@@ -1007,7 +1010,8 @@ fun CasualSavedScreen(
     finalScore: Int,
     wordsFound: Int,
     sessionDuration: Int,
-    onNavigateBack: () -> Unit
+    onPlayAgain: () -> Unit,
+    onMainMenu: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -1063,13 +1067,24 @@ fun CasualSavedScreen(
         Spacer(modifier = Modifier.height(32.dp))
 
         Button(
-            onClick = onNavigateBack,
+            onClick = onPlayAgain,
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.tertiary
             )
         ) {
-            Text("Back to Categories")
+            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Play Again")
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        OutlinedButton(
+            onClick = onMainMenu,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Default.Home, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Main Menu")
         }
     }
 }
