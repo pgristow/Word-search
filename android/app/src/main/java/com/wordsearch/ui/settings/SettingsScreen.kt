@@ -27,6 +27,8 @@ fun SettingsScreen(
     val sfx by viewModel.sfx.collectAsState()
     val music by viewModel.music.collectAsState()
     val track by viewModel.track.collectAsState()
+    val shuffle by viewModel.shuffle.collectAsState()
+    val volume by viewModel.volume.collectAsState()
 
     Scaffold(
         topBar = {
@@ -50,10 +52,28 @@ fun SettingsScreen(
             Text("Sound", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             ToggleRow("Sound effects", "Chime on correct, gentle tone on wrong", sfx, viewModel::setSfx)
-            ToggleRow("Casual music", "Relaxing lo-fi while you play Casual", music, viewModel::setMusic)
+            ToggleRow("Casual music", "Background music while you play Casual", music, viewModel::setMusic)
+            ToggleRow("Shuffle tracks", "Start on a random song and roll through them all", shuffle, viewModel::setShuffle)
 
-            Spacer(Modifier.height(20.dp))
-            Text("Casual music track", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
+            Text("Music volume", style = MaterialTheme.typography.bodyLarge)
+            Slider(
+                value = volume,
+                onValueChange = { viewModel.setVolume(it) },
+                valueRange = 0f..1f,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(Modifier.height(12.dp))
+            Text("Music track", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            if (shuffle) {
+                Text(
+                    "Shuffle is on — songs play in random order. Turn it off to lock one track.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 2.dp)
+                )
+            }
             Spacer(Modifier.height(4.dp))
             viewModel.tracks.forEach { (id, name) ->
                 Surface(

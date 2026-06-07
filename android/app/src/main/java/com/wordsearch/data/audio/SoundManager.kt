@@ -39,17 +39,16 @@ class SoundManager @Inject constructor(
     private var preview: MediaPlayer? = null
 
     /** Selectable music tracks: id -> (display name, raw resource).
-     *  The four feature tracks are by Kevin MacLeod (incompetech.com), CC BY 4.0 —
-     *  see the in-app Credits screen. Pluck/Beat/Bright are short synthesized loops. */
+     *  All by Kevin MacLeod (incompetech.com), CC BY 4.0 — see the in-app Credits screen. */
     val tracks: List<Triple<String, String, Int>> = listOf(
         Triple("journey_ascend", "Journey To Ascend", R.raw.journey_ascend),
         Triple("whimsy_groove", "Whimsy Groove", R.raw.whimsy_groove),
         Triple("foxtale_waltz", "Fox Tale Waltz", R.raw.foxtale_waltz),
         Triple("half_mystery", "Half Mystery", R.raw.half_mystery),
-        Triple("lofi_pluck", "Pluck", R.raw.lofi_pluck),
-        Triple("lofi_beat", "Beat", R.raw.lofi_beat),
-        Triple("lofi_bright", "Bright", R.raw.lofi_bright),
     )
+
+    /** The track currently playing in shuffle mode, so we don't repeat it back-to-back. */
+    private var nowPlayingId: String? = null
 
     var sfxEnabled: Boolean
         get() = prefs.getBoolean("sfx", true)
@@ -66,6 +65,21 @@ class SoundManager @Inject constructor(
         get() = prefs.getString("track", "journey_ascend") ?: "journey_ascend"
         set(v) = prefs.edit().putString("track", v).apply()
 
+    /** When true, casual music shuffles through all tracks instead of looping one. */
+    var shuffleMusic: Boolean
+        get() = prefs.getBoolean("shuffle", true)
+        set(v) = prefs.edit().putBoolean("shuffle", v).apply()
+
+    /** Background music volume, 0f..1f. */
+    var musicVolume: Float
+        get() = prefs.getFloat("music_vol", 0.6f)
+        set(v) {
+            val vol = v.coerceIn(0f, 1f)
+            prefs.edit().putFloat("music_vol", vol).apply()
+            music?.setVolume(vol, vol)
+            preview?.setVolume(vol, vol)
+        }
+
     /** Preferred default mode ("CLASSIC"/"CASUAL"), or null to always ask. */
     var defaultMode: String?
         get() = prefs.getString("mode", null)
@@ -76,12 +90,40 @@ class SoundManager @Inject constructor(
     fun playCorrect() { if (sfxEnabled) soundPool.play(correctId, 0.9f, 0.9f, 1, 0, 1f) }
     fun playIncorrect() { if (sfxEnabled) soundPool.play(incorrectId, 1f, 1f, 1, 0, 1f) }
 
+    /**
+     * Start casual background music. In shuffle mode (default) it starts on a random
+     * track and, when each finishes, continues to another random track endlessly. With
+     * shuffle off it loops the single selected track.
+     */
     fun startCasualMusic() {
         if (!musicEnabled) return
+        if (shuffleMusic) {
+            playTrack(randomTrackId(exclude = null), loopSingle = false)
+        } else {
+            playTrack(musicTrack, loopSingle = true)
+        }
+    }
+
+    private fun randomTrackId(exclude: String?): String {
+        val ids = tracks.map { it.first }
+        return ids.filter { it != exclude }.randomOrNull() ?: ids.random()
+    }
+
+    private fun playTrack(id: String, loopSingle: Boolean) {
         stopMusic()
-        music = MediaPlayer.create(context, resFor(musicTrack))?.apply {
-            isLooping = true
-            setVolume(0.45f, 0.45f)
+        nowPlayingId = id
+        val vol = musicVolume
+        music = MediaPlayer.create(context, resFor(id))?.apply {
+            setVolume(vol, vol)
+            if (loopSingle) {
+                isLooping = true
+            } else {
+                isLooping = false
+                // When this track ends, roll on to a different random one (shuffle loop).
+                setOnCompletionListener {
+                    if (musicEnabled) playTrack(randomTrackId(exclude = id), loopSingle = false)
+                }
+            }
             start()
         }
     }
@@ -94,8 +136,9 @@ class SoundManager @Inject constructor(
     /** Play a track once for previewing in settings. */
     fun previewTrack(id: String) {
         stopPreview()
+        val vol = musicVolume
         preview = MediaPlayer.create(context, resFor(id))?.apply {
-            setVolume(0.6f, 0.6f)
+            setVolume(vol, vol)
             start()
         }
     }

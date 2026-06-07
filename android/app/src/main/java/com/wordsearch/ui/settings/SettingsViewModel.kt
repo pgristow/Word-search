@@ -18,6 +18,10 @@ class SettingsViewModel @Inject constructor(
     val music = _music.asStateFlow()
     private val _track = MutableStateFlow(sound.musicTrack)
     val track = _track.asStateFlow()
+    private val _shuffle = MutableStateFlow(sound.shuffleMusic)
+    val shuffle = _shuffle.asStateFlow()
+    private val _volume = MutableStateFlow(sound.musicVolume)
+    val volume = _volume.asStateFlow()
 
     /** (id, displayName) for each selectable track. */
     val tracks: List<Pair<String, String>> = sound.tracks.map { it.first to it.second }
@@ -30,6 +34,15 @@ class SettingsViewModel @Inject constructor(
     fun setMusic(v: Boolean) {
         sound.musicEnabled = v; _music.value = v
         if (!v) sound.stopPreview()
+    }
+
+    fun setShuffle(v: Boolean) {
+        sound.shuffleMusic = v; _shuffle.value = v
+    }
+
+    /** Live-update volume while dragging; previews the current track so the change is audible. */
+    fun setVolume(v: Float) {
+        sound.musicVolume = v; _volume.value = v
     }
 
     fun selectTrack(id: String) {

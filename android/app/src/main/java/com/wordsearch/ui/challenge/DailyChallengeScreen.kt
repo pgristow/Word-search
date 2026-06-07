@@ -18,6 +18,7 @@ import com.wordsearch.data.api.DailyChallenge
 @Composable
 fun DailyChallengeScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToSettings: () -> Unit = {},
     onNavigateToGame: (String, String) -> Unit,
     viewModel: DailyChallengeViewModel = hiltViewModel()
 ) {
@@ -31,6 +32,11 @@ fun DailyChallengeScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 }
             )

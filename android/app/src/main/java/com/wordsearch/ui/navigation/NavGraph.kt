@@ -89,6 +89,9 @@ fun NavGraph(
                 onNavigateToStore = {
                     navController.navigate(Screen.Store.route)
                 },
+                onNavigateToSettings = {
+                    navController.navigate(Screen.Settings.route)
+                },
                 onLogout = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
@@ -159,6 +162,9 @@ fun NavGraph(
             AchievementsScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onNavigateToSettings = {
+                    navController.navigate(Screen.Settings.route)
                 }
             )
         }
@@ -167,6 +173,9 @@ fun NavGraph(
             LeaderboardScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onNavigateToSettings = {
+                    navController.navigate(Screen.Settings.route)
                 }
             )
         }
@@ -175,6 +184,9 @@ fun NavGraph(
             DailyChallengeScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onNavigateToSettings = {
+                    navController.navigate(Screen.Settings.route)
                 },
                 onNavigateToGame = { attemptId, challengeId ->
                     navController.navigate(Screen.Game.createRoute(challengeId, "CHALLENGE"))
@@ -186,6 +198,9 @@ fun NavGraph(
             LeagueScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onNavigateToSettings = {
+                    navController.navigate(Screen.Settings.route)
                 }
             )
         }
@@ -194,6 +209,9 @@ fun NavGraph(
             StoreScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onNavigateToSettings = {
+                    navController.navigate(Screen.Settings.route)
                 }
             )
         }

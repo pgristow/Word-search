@@ -31,6 +31,7 @@ fun CategoriesScreen(
     onNavigateToLeaderboard: () -> Unit,
     onNavigateToDailyChallenge: () -> Unit,
     onNavigateToStore: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
     onLogout: () -> Unit,
     viewModel: CategoriesViewModel = hiltViewModel()
 ) {
@@ -58,6 +59,9 @@ fun CategoriesScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
                     IconButton(onClick = { showMenu = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "Menu")
                     }
