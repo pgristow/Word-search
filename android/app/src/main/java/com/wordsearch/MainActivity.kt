@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.rememberNavController
@@ -43,6 +44,16 @@ fun WordSearchApp() {
         Screen.Landing.route
     } else {
         Screen.Login.route
+    }
+
+    // Auto-logout: if the server rejects our saved token, bounce to login instead of
+    // getting stuck on a generic "failed to fetch" error.
+    LaunchedEffect(Unit) {
+        authViewModel.sessionExpired.collect {
+            navController.navigate(Screen.Login.route) {
+                popUpTo(0) { inclusive = true }
+            }
+        }
     }
 
     NavGraph(

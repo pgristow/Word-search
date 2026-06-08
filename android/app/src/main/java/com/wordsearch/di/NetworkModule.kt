@@ -6,6 +6,7 @@ import com.wordsearch.data.api.EconomyApi
 import com.wordsearch.data.api.GameApi
 import com.wordsearch.data.api.LeagueApi
 import com.wordsearch.data.api.LeaderboardApi
+import com.wordsearch.data.local.AuthEvents
 import com.wordsearch.data.local.TokenManager
 import dagger.Module
 import dagger.Provides
@@ -37,16 +38,23 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideAuthInterceptor(tokenManager: TokenManager): Interceptor {
+    fun provideAuthInterceptor(tokenManager: TokenManager, authEvents: AuthEvents): Interceptor {
         return Interceptor { chain ->
+            val token = tokenManager.getToken()
             val requestBuilder = chain.request().newBuilder()
+            if (token != null) requestBuilder.addHeader("Authorization", "Bearer $token")
 
-            // Add authorization header if token exists
-            tokenManager.getToken()?.let { token ->
-                requestBuilder.addHeader("Authorization", "Bearer $token")
+            val response = chain.proceed(requestBuilder.build())
+
+            // We sent a token but it was rejected -> the saved session is invalid/expired
+            // (e.g. token aged out, or the DB was refreshed). Clear it and signal a re-login
+            // so the app doesn't get stuck on "failed to fetch".
+            if (token != null && (response.code == 401 || response.code == 403)) {
+                // Interceptor runs off the main thread, so blocking briefly here is fine.
+                kotlinx.coroutines.runBlocking { tokenManager.clearToken() }
+                authEvents.notifySessionExpired()
             }
-
-            chain.proceed(requestBuilder.build())
+            response
         }
     }
 

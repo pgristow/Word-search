@@ -12,11 +12,15 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    authEvents: com.wordsearch.data.local.AuthEvents
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
+
+    /** Emits when the saved session was rejected by the server (re-login required). */
+    val sessionExpired = authEvents.sessionExpired
 
     fun login(username: String, password: String) {
         if (username.isBlank() || password.isBlank()) {
