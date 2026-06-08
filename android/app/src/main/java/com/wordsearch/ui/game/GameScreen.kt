@@ -251,6 +251,7 @@ fun GameScreen(
 private val BonusGold = Color(0xFFF2A03D)
 private val BonusGoldContainer = Color(0xFFFBE7CC)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GamePlayingContent(
     session: GameSession,
@@ -266,6 +267,7 @@ fun GamePlayingContent(
     val foundWordPaths by viewModel.foundWordPaths.collectAsState()
     val paintBursts by viewModel.paintBursts.collectAsState()
     val wetCells by viewModel.wetCells.collectAsState()
+    val hazardType by viewModel.hazardType.collectAsState()
     val lastWordResult by viewModel.lastWordResult.collectAsState()
     val hintedCells by viewModel.hintedCells.collectAsState()
     val isCasualMode = gameMode == "CASUAL"
@@ -307,12 +309,30 @@ fun GamePlayingContent(
                 hintedCells = hintedCells,
                 paintBursts = paintBursts,
                 wetCells = wetCells,
+                hazardType = hazardType,
                 onDropLand = { cell -> viewModel.cleanCellByDrop(cell) },
                 onSelectionStart = { row, col -> viewModel.startSelection(row, col) },
                 onSelectionUpdate = { row, col -> viewModel.updateSelection(row, col, session.gridSize) },
                 onSelectionComplete = { viewModel.submitWord() }
             )
             WordFoundPopup(popup = popup, onDone = { viewModel.clearWordPopup() })
+        }
+
+        // Hazard evaluation picker — switch the active hazard look live.
+        if (viewModel.hazardsActive) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                HazardType.values().forEach { h ->
+                    FilterChip(
+                        selected = hazardType == h,
+                        onClick = { viewModel.setHazardType(h) },
+                        label = { Text(h.label) }
+                    )
+                }
+            }
         }
 
         // Wash button — appears in the Casual hazard sandbox when tiles get splashed.
@@ -628,6 +648,7 @@ fun WordGrid(
     hintedCells: List<Pair<Int, Int>> = emptyList(),
     paintBursts: List<PaintBurst> = emptyList(),
     wetCells: Map<Pair<Int, Int>, Int> = emptyMap(),
+    hazardType: HazardType = HazardType.WATER,
     onDropLand: (Pair<Int, Int>) -> Unit = {},
     onSelectionStart: (Int, Int) -> Unit,
     onSelectionUpdate: (Int, Int) -> Unit,
@@ -723,9 +744,15 @@ fun WordGrid(
                                 isFound -> foundColorByCell[cell]!!
                                 else -> PaperTile    // crinkled sticky-note paper
                             }
-                            // Wet DARKENS whatever the tile already is (so selecting/finding a
-                            // word can't remove the splash), gently accumulating per level.
-                            val tileColor = if (wet) lerp(baseColor, PaperWetDeep, lvl * 0.09f) else baseColor
+                            // Damage tints the tile toward the hazard's tone, accumulating per
+                            // level (and persisting through finds/selection).
+                            val hazTone = when (hazardType) {
+                                HazardType.WATER -> PaperWetDeep
+                                HazardType.MUD -> Color(0xFF4A3520)
+                                HazardType.FROST -> Color(0xFFB6E0F2)
+                                HazardType.SOOT -> Color(0xFF2C2C2C)
+                            }
+                            val tileColor = if (wet) lerp(baseColor, hazTone, lvl * 0.12f) else baseColor
                             GridCell(Modifier.width(cellDp).fillMaxHeight(), tileColor, isFound, wet)
                         }
                     }
@@ -785,17 +812,46 @@ fun WordGrid(
                 drops.forEach { d -> drawPaintDrop(d) }
             }
 
-            // 3b) Water hazard: tile darkening is done via its colour; here just a faint damp
-            //     sheen so it looks wet (very subtle, the tile colour carries the effect).
+            // 3b) Per-hazard overlay on damaged tiles (sheen / mud blobs / frost / soot).
             if (wetCells.isNotEmpty()) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val inset = cellPx * 0.05f
                     val sz = cellPx - inset * 2
-                    wetCells.forEach { (rc, _) ->
+                    wetCells.forEach { (rc, lvl) ->
                         val (r, c) = rc
                         val left = c * cellPx + inset
                         val top = r * cellPx + inset
-                        drawCircle(Color.White.copy(alpha = 0.10f), radius = sz * 0.15f, center = Offset(left + sz * 0.32f, top + sz * 0.28f))
+                        val cx = left + sz / 2f; val cy = top + sz / 2f
+                        val seed = ((r * 31 + c * 17) % 100) / 100f
+                        when (hazardType) {
+                            HazardType.WATER -> {
+                                drawCircle(Color.White.copy(alpha = 0.10f), radius = sz * 0.15f, center = Offset(left + sz * 0.32f, top + sz * 0.28f))
+                            }
+                            HazardType.MUD -> {
+                                // brown splatter gobs partially covering the tile
+                                for (k in 0 until 1 + lvl) {
+                                    val a = (seed + k * 0.37f) * 6.2832f
+                                    val dd = sz * (0.12f + 0.12f * k)
+                                    drawCircle(Color(0xFF3A2A16).copy(alpha = 0.7f), radius = sz * (0.20f - k * 0.02f), center = Offset(cx + kotlin.math.cos(a) * dd, cy + kotlin.math.sin(a) * dd))
+                                }
+                            }
+                            HazardType.FROST -> {
+                                // icy film + a few frost crystals from the edges
+                                drawRoundRect(Color(0xFFCDEBFA).copy(alpha = 0.12f * lvl), topLeft = Offset(left, top), size = Size(sz, sz), cornerRadius = androidx.compose.ui.geometry.CornerRadius(cellPx * 0.18f))
+                                for (k in 0 until 3) {
+                                    val a = (seed + k * 0.33f) * 6.2832f
+                                    drawLine(Color.White.copy(alpha = 0.5f), Offset(cx, cy), Offset(cx + kotlin.math.cos(a) * sz * 0.4f, cy + kotlin.math.sin(a) * sz * 0.4f), strokeWidth = 1.6f)
+                                }
+                            }
+                            HazardType.SOOT -> {
+                                // sooty speckle darkening
+                                for (k in 0 until 4 + lvl * 2) {
+                                    val a = (seed + k * 0.21f) * 6.2832f
+                                    val dd = sz * (0.1f + (k % 3) * 0.13f)
+                                    drawCircle(Color.Black.copy(alpha = 0.18f), radius = sz * 0.06f, center = Offset(cx + kotlin.math.cos(a) * dd, cy + kotlin.math.sin(a) * dd))
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -829,16 +885,32 @@ fun WordGrid(
                         val base = Offset(cx - layout.size.width / 2f, cy - layout.size.height / 2f)
                         val wetLvl = wetCells[cell] ?: 0
                         if (wetLvl > 0) {
-                            // Wet ink: a GENTLE, accumulating fuzz. Level 1 is barely soft;
-                            // each further hit adds a little blur + fades the core, reaching a
-                            // smudge only at level 3. (Dialed well back per feedback.)
-                            val f = cellPx * (0.012f + wetLvl * 0.016f)
-                            for (a in 0 until 8) {
-                                val ang = a / 8f * 6.2832f
-                                drawText(layout, color = fill.copy(alpha = 0.06f), topLeft = base + Offset(kotlin.math.cos(ang) * f, kotlin.math.sin(ang) * f))
+                            val coreAlpha = (0.85f - wetLvl * 0.22f).coerceAtLeast(0.12f)
+                            when (hazardType) {
+                                HazardType.WATER -> {
+                                    // gentle accumulating fuzz, smudge by lvl3
+                                    val f = cellPx * (0.012f + wetLvl * 0.016f)
+                                    for (a in 0 until 8) {
+                                        val ang = a / 8f * 6.2832f
+                                        drawText(layout, color = fill.copy(alpha = 0.06f), topLeft = base + Offset(kotlin.math.cos(ang) * f, kotlin.math.sin(ang) * f))
+                                    }
+                                    drawText(layout, color = fill.copy(alpha = coreAlpha), topLeft = base)
+                                }
+                                HazardType.MUD -> {
+                                    // dimmed letter under the mud gobs
+                                    drawText(layout, color = fill.copy(alpha = (0.6f - wetLvl * 0.16f).coerceAtLeast(0.1f)), topLeft = base)
+                                }
+                                HazardType.FROST -> {
+                                    // icy, faded letter
+                                    val ice = lerp(fill, Color(0xFFEAF6FF), 0.6f)
+                                    drawText(layout, color = ice.copy(alpha = (0.9f - wetLvl * 0.2f).coerceAtLeast(0.3f)), topLeft = base)
+                                }
+                                HazardType.SOOT -> {
+                                    // low-contrast grey that fades into the soot
+                                    val sooty = lerp(fill, Color(0xFF6E6E6E), 0.7f)
+                                    drawText(layout, color = sooty.copy(alpha = coreAlpha), topLeft = base)
+                                }
                             }
-                            val coreAlpha = (0.85f - wetLvl * 0.24f).coerceAtLeast(0.12f)
-                            drawText(layout, color = fill.copy(alpha = coreAlpha), topLeft = base)
                         } else {
                             // lower-right dark shadow (depth) and upper-left light edge (bevel)
                             drawText(layout, color = Color.Black.copy(alpha = 0.55f), topLeft = base + Offset(o, o))

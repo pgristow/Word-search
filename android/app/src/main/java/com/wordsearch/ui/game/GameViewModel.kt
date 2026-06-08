@@ -87,6 +87,11 @@ class GameViewModel @Inject constructor(
     var hazardsActive: Boolean = false
         private set
 
+    // Which hazard's LOOK is applied to the damage levels — switchable live for evaluation.
+    private val _hazardType = MutableStateFlow(HazardType.WATER)
+    val hazardType: StateFlow<HazardType> = _hazardType.asStateFlow()
+    fun setHazardType(t: HazardType) { _hazardType.value = t }
+
     fun washBoard() { _wetCells.value = emptyMap() }
 
     private fun startWaterHazard(gridSize: Int) {
@@ -539,6 +544,11 @@ class GameViewModel @Inject constructor(
         soundManager.stopMusic(); stopWaterHazard()
         super.onCleared()
     }
+}
+
+/** Selectable splash hazard looks (the damage-level mechanism is shared). */
+enum class HazardType(val label: String) {
+    WATER("Water"), MUD("Mud"), FROST("Frost"), SOOT("Soot")
 }
 
 // Drives the popping bubble over the grid. A new [id] re-triggers the pop animation.
