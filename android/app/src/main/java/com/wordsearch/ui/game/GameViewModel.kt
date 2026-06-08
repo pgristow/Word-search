@@ -62,10 +62,11 @@ class GameViewModel @Inject constructor(
         _paintBursts.value = _paintBursts.value + PaintBurst(paintCounter, path, colorIndex, score)
     }
 
-    // WATER HAZARD (Casual sandbox): cells currently splashed/smudged. The letter on a wet
-    // cell is obscured; the cell stays selectable. Wash the board to clear them all.
-    private val _wetCells = MutableStateFlow<Set<Pair<Int, Int>>>(emptySet())
-    val wetCells: StateFlow<Set<Pair<Int, Int>>> = _wetCells.asStateFlow()
+    // WATER HAZARD (Casual sandbox): cell -> wetness LEVEL (1..3). Each splash on a cell
+    // raises the level, so repeated hits darken the paper and fuzz the letter further until
+    // it's just a smudge. The cell stays selectable. Wash the board to clear it all.
+    private val _wetCells = MutableStateFlow<Map<Pair<Int, Int>, Int>>(emptyMap())
+    val wetCells: StateFlow<Map<Pair<Int, Int>, Int>> = _wetCells.asStateFlow()
     // A bump id that ticks whenever a new balloon pops, so the UI can splash an animation.
     private val _splashEvent = MutableStateFlow(0L to (0 to 0))
     val splashEvent: StateFlow<Pair<Long, Pair<Int, Int>>> = _splashEvent.asStateFlow()
@@ -74,7 +75,7 @@ class GameViewModel @Inject constructor(
     var hazardsActive: Boolean = false
         private set
 
-    fun washBoard() { _wetCells.value = emptySet() }
+    fun washBoard() { _wetCells.value = emptyMap() }
 
     private fun startWaterHazard(gridSize: Int) {
         hazardJob?.cancel()
@@ -92,13 +93,16 @@ class GameViewModel @Inject constructor(
                         if (r in 0 until gridSize && c in 0 until gridSize && kotlin.random.Random.nextFloat() < 0.6f) add(r to c)
                     }
                 }
-                _wetCells.value = _wetCells.value + splash
+                // Raise each hit cell's wetness level (capped at 3 = full smudge).
+                val next = _wetCells.value.toMutableMap()
+                splash.forEach { next[it] = ((next[it] ?: 0) + 1).coerceAtMost(3) }
+                _wetCells.value = next
                 kotlinx.coroutines.delay(5500)
             }
         }
     }
 
-    private fun stopWaterHazard() { hazardJob?.cancel(); hazardJob = null; _wetCells.value = emptySet() }
+    private fun stopWaterHazard() { hazardJob?.cancel(); hazardJob = null; _wetCells.value = emptyMap() }
 
     // Hint: cells of the most-recently hinted word (cleared when a new selection starts)
     private val _hintedCells = MutableStateFlow<List<Pair<Int, Int>>>(emptyList())
@@ -144,7 +148,7 @@ class GameViewModel @Inject constructor(
 
                     // Casual splash hazards (water for now), if enabled in settings.
                     hazardsActive = gameMode.equals("CASUAL", ignoreCase = true) && modeStore.casualHazards
-                    _wetCells.value = emptySet()
+                    _wetCells.value = emptyMap()
                     if (hazardsActive) startWaterHazard(session.gridSize) else stopWaterHazard()
 
                     _uiState.value = GameUiState.Playing(session)

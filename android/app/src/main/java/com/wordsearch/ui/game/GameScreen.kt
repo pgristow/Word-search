@@ -623,7 +623,7 @@ fun WordGrid(
     foundWordPaths: List<Pair<String, List<Pair<Int, Int>>>>,
     hintedCells: List<Pair<Int, Int>> = emptyList(),
     paintBursts: List<PaintBurst> = emptyList(),
-    wetCells: Set<Pair<Int, Int>> = emptySet(),
+    wetCells: Map<Pair<Int, Int>, Int> = emptyMap(),
     onSelectionStart: (Int, Int) -> Unit,
     onSelectionUpdate: (Int, Int) -> Unit,
     onSelectionComplete: () -> Unit,
@@ -710,12 +710,14 @@ fun WordGrid(
                             val isSelected = selectedSet.contains(cell)
                             val isHinted = hintedSet.contains(cell)
                             val isFound = !isSelected && !isHinted && foundColorByCell[cell] != null
-                            val wet = wetCells.contains(cell)
+                            val lvl = wetCells[cell] ?: 0
+                            val wet = lvl > 0
                             val tileColor = when {
                                 isSelected -> SelectBlue
                                 isHinted -> HintHighlight
                                 isFound -> foundColorByCell[cell]!!
-                                wet -> PaperWet      // wet paper darkens
+                                // Darker each splash: lvl1 ~0.55, lvl2 ~0.8, lvl3 full wet.
+                                wet -> lerp(PaperTile, PaperWet, (lvl * 0.3f + 0.25f).coerceAtMost(1f))
                                 else -> PaperTile    // crinkled sticky-note paper
                             }
                             GridCell(Modifier.width(cellDp).fillMaxHeight(), tileColor, isFound, wet)
@@ -771,15 +773,24 @@ fun WordGrid(
                 drops.forEach { d -> drawPaintDrop(d) }
             }
 
-            // 3b) Water hazard: the wet tile is already DARKENED via its colour; here we add
-            //     only a faint damp sheen so it looks wet, not painted.
+            // 3b) Water hazard: tile is already darkened via its colour; add a deepening damp
+            //     wash + a faint sheen, both growing with the wetness level.
             if (wetCells.isNotEmpty()) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
-                    val sz = cellPx - cellPx * 0.12f
-                    wetCells.forEach { (r, c) ->
-                        val left = c * cellPx + cellPx * 0.06f
-                        val top = r * cellPx + cellPx * 0.06f
-                        drawCircle(Color.White.copy(alpha = 0.14f), radius = sz * 0.16f, center = Offset(left + sz * 0.32f, top + sz * 0.28f))
+                    val inset = cellPx * 0.05f
+                    val sz = cellPx - inset * 2
+                    wetCells.forEach { (rc, lvl) ->
+                        val (r, c) = rc
+                        val left = c * cellPx + inset
+                        val top = r * cellPx + inset
+                        // extra darkening at higher levels (soaked paper)
+                        drawRoundRect(
+                            color = Color(0xFF241A0E).copy(alpha = 0.07f * lvl),
+                            topLeft = Offset(left, top),
+                            size = Size(sz, sz),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(cellPx * 0.18f)
+                        )
+                        drawCircle(Color.White.copy(alpha = 0.13f), radius = sz * 0.16f, center = Offset(left + sz * 0.32f, top + sz * 0.28f))
                     }
                 }
             }
@@ -811,16 +822,22 @@ fun WordGrid(
                         val cx = (c + 0.5f) * cellPx
                         val cy = (r + 0.5f) * cellPx
                         val base = Offset(cx - layout.size.width / 2f, cy - layout.size.height / 2f)
-                        if (wetCells.contains(cell)) {
-                            // Wet ink: the letter goes LIGHTER and FUZZIER (bleeds outward in a
-                            // soft halo) — still faintly visible, not a hard smear.
-                            val lightInk = lerp(onSurface, PaperWet, 0.5f)
-                            val f = cellPx * 0.055f
-                            for (a in 0 until 8) {
-                                val ang = a / 8f * 6.2832f
-                                drawText(layout, color = lightInk.copy(alpha = 0.09f), topLeft = base + Offset(kotlin.math.cos(ang) * f, kotlin.math.sin(ang) * f))
+                        val wetLvl = wetCells[cell] ?: 0
+                        if (wetLvl > 0) {
+                            // Wet ink: lighter + much fuzzier each hit — two bleed rings of
+                            // offset copies, growing with the level, until at lvl3 it's a smudge.
+                            val lightInk = lerp(onSurface, PaperWet, 0.35f + wetLvl * 0.18f)
+                            val f = cellPx * (0.05f + wetLvl * 0.04f)
+                            val copies = 10 + wetLvl * 6
+                            val ringAlpha = (0.10f - wetLvl * 0.018f).coerceAtLeast(0.04f)
+                            for (a in 0 until copies) {
+                                val ang = a.toFloat() / copies * 6.2832f
+                                drawText(layout, color = lightInk.copy(alpha = ringAlpha), topLeft = base + Offset(kotlin.math.cos(ang) * f, kotlin.math.sin(ang) * f))
+                                drawText(layout, color = lightInk.copy(alpha = ringAlpha * 0.7f), topLeft = base + Offset(kotlin.math.cos(ang) * f * 1.8f, kotlin.math.sin(ang) * f * 1.8f))
                             }
-                            drawText(layout, color = lightInk.copy(alpha = 0.5f), topLeft = base)
+                            // faint core, fading further with each hit (lvl3 ≈ gone)
+                            val coreAlpha = (0.5f - wetLvl * 0.15f).coerceAtLeast(0.05f)
+                            drawText(layout, color = lightInk.copy(alpha = coreAlpha), topLeft = base)
                         } else {
                             // lower-right dark shadow (depth) and upper-left light edge (bevel)
                             drawText(layout, color = Color.Black.copy(alpha = 0.55f), topLeft = base + Offset(o, o))
