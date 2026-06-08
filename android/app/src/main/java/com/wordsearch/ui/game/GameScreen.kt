@@ -307,6 +307,7 @@ fun GamePlayingContent(
                 hintedCells = hintedCells,
                 paintBursts = paintBursts,
                 wetCells = wetCells,
+                onDropLand = { cell -> viewModel.cleanCellByDrop(cell) },
                 onSelectionStart = { row, col -> viewModel.startSelection(row, col) },
                 onSelectionUpdate = { row, col -> viewModel.updateSelection(row, col, session.gridSize) },
                 onSelectionComplete = { viewModel.submitWord() }
@@ -627,6 +628,7 @@ fun WordGrid(
     hintedCells: List<Pair<Int, Int>> = emptyList(),
     paintBursts: List<PaintBurst> = emptyList(),
     wetCells: Map<Pair<Int, Int>, Int> = emptyMap(),
+    onDropLand: (Pair<Int, Int>) -> Unit = {},
     onSelectionStart: (Int, Int) -> Unit,
     onSelectionUpdate: (Int, Int) -> Unit,
     onSelectionComplete: () -> Unit,
@@ -764,9 +766,15 @@ fun WordGrid(
                             life = Animatable(0f)
                         )
                         drops.add(drop)
+                        // The cell this droplet will land on (cleans it on impact).
+                        val landR = ((drop.oy + drop.dy) / cellPx).toInt()
+                        val landC = ((drop.ox + drop.dx) / cellPx).toInt()
                         scope.launch {
                             delay((kotlin.random.Random.nextFloat() * 120f).toLong())
-                            drop.life.animateTo(1f, tween(820, easing = LinearEasing))
+                            // flight, then impact (clean), then the splat settles
+                            drop.life.animateTo(PAINT_FLIGHT, tween((820 * PAINT_FLIGHT).toInt(), easing = LinearEasing))
+                            if (landR in 0 until rows && landC in 0 until cols) onDropLand(landR to landC)
+                            drop.life.animateTo(1f, tween((820 * (1f - PAINT_FLIGHT)).toInt(), easing = LinearEasing))
                         }
                     }
                     // Cap total persistent drops so very long games stay smooth.

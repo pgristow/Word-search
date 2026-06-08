@@ -60,20 +60,17 @@ class GameViewModel @Inject constructor(
         paintCounter += 1
         val colorIndex = (_foundWordPaths.value.size - 1).coerceAtLeast(0)
         _paintBursts.value = _paintBursts.value + PaintBurst(paintCounter, path, colorIndex, score)
-        // Finding a word also CLEANS the board — the burst washes 2 wet tiles down by one
-        // level each (the inverse of a single water splash), so playing well keeps it tidy.
-        cleanWetTiles(2)
     }
 
-    private fun cleanWetTiles(count: Int) {
-        val wet = _wetCells.value
-        if (wet.isEmpty()) return
-        val targets = wet.keys.shuffled().take(count)
-        val next = wet.toMutableMap()
-        targets.forEach { cell ->
-            val lv = (next[cell] ?: 0) - 1
-            if (lv <= 0) next.remove(cell) else next[cell] = lv
-        }
+    /**
+     * Called when a paint droplet from a found word LANDS on [cell]: it washes one level of
+     * wetness off that exact tile. So the paint splatter from finding words cleans whatever
+     * it lands on, tile by tile.
+     */
+    fun cleanCellByDrop(cell: Pair<Int, Int>) {
+        val lv = _wetCells.value[cell] ?: return
+        val next = _wetCells.value.toMutableMap()
+        if (lv - 1 <= 0) next.remove(cell) else next[cell] = lv - 1
         _wetCells.value = next
     }
 
@@ -95,24 +92,31 @@ class GameViewModel @Inject constructor(
     private fun startWaterHazard(gridSize: Int) {
         hazardJob?.cancel()
         hazardJob = viewModelScope.launch {
-            kotlinx.coroutines.delay(4000)
+            // Start slow and rain harder over time: long gaps + tiny splashes at first,
+            // ramping to frequent, wider splashes — so early play is gentle and pressure
+            // builds (in the full game this maps to level; here it's session time).
+            kotlinx.coroutines.delay(8000)
+            var wave = 0
             while (true) {
-                // A water balloon pops on a random cell and wets a small cluster around it.
                 val cr = kotlin.random.Random.nextInt(gridSize)
                 val cc = kotlin.random.Random.nextInt(gridSize)
                 _splashEvent.value = (System.nanoTime()) to (cr to cc)
+                // Neighbour spread grows with the wave (small puddle -> big splash).
+                val spread = (0.15f + wave * 0.05f).coerceAtMost(0.65f)
                 val splash = buildSet {
                     add(cr to cc)
                     for (dr in -1..1) for (dc in -1..1) {
                         val r = cr + dr; val c = cc + dc
-                        if (r in 0 until gridSize && c in 0 until gridSize && kotlin.random.Random.nextFloat() < 0.6f) add(r to c)
+                        if (r in 0 until gridSize && c in 0 until gridSize && kotlin.random.Random.nextFloat() < spread) add(r to c)
                     }
                 }
-                // Raise each hit cell's wetness level (capped at 3 = full smudge).
                 val next = _wetCells.value.toMutableMap()
                 splash.forEach { next[it] = ((next[it] ?: 0) + 1).coerceAtMost(3) }
                 _wetCells.value = next
-                kotlinx.coroutines.delay(5500)
+                wave++
+                // Interval shrinks from ~11s down to ~4s as the session goes on.
+                val interval = (11000L - wave * 450L).coerceAtLeast(4000L)
+                kotlinx.coroutines.delay(interval)
             }
         }
     }
