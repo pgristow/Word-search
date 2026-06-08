@@ -18,8 +18,9 @@ class LeaderboardController(
         @RequestParam(name = "period", defaultValue = "ALL_TIME") period: String
     ): ResponseEntity<Any> {
         return try {
-            // The global weekly board is always "this week" — resolve the period server-side.
-            val resolvedPeriod = if (boardType == LeaderboardService.BOARD_GLOBAL_WEEKLY) {
+            // Weekly boards are always "this week" — resolve the period server-side.
+            val resolvedPeriod = if (boardType == LeaderboardService.BOARD_GLOBAL_WEEKLY ||
+                boardType == LeaderboardService.BOARD_CASUAL_WEEKLY) {
                 leaderboardService.currentWeekKey()
             } else period
             val entries = leaderboardService.topEntries(boardType, resolvedPeriod)

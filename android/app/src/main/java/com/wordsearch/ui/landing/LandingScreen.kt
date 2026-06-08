@@ -59,7 +59,7 @@ fun LandingScreen(
             Spacer(Modifier.weight(1f))
 
             Button(
-                onClick = onCompetitive,
+                onClick = { viewModel.chooseCompetitive(); onCompetitive() },
                 modifier = Modifier.fillMaxWidth().height(54.dp),
                 shape = MaterialTheme.shapes.large,
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = BgTop)
@@ -70,7 +70,7 @@ fun LandingScreen(
             }
             Spacer(Modifier.height(12.dp))
             FilledTonalButton(
-                onClick = onCasual,
+                onClick = { viewModel.chooseCasual(); onCasual() },
                 modifier = Modifier.fillMaxWidth().height(54.dp),
                 shape = MaterialTheme.shapes.large,
                 colors = ButtonDefaults.filledTonalButtonColors(
