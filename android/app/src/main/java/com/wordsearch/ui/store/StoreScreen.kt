@@ -50,7 +50,7 @@ fun StoreScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 title = { Text("Store") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

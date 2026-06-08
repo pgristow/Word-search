@@ -33,7 +33,7 @@ private val CalmColorScheme = lightColorScheme(
     onSurface = Ink,
     surfaceVariant = BoardTrough,
     onSurfaceVariant = InkSoft,
-    outline = Color(0xFFCFC8BA),
+    outline = Color(0xFFCBC4E8),
     error = DangerRed,
     onError = Color.White,
 )
@@ -65,17 +65,21 @@ private val CalmDarkScheme = darkColorScheme(
 
 @Composable
 fun WordSearchTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    @Suppress("UNUSED_PARAMETER") darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) CalmDarkScheme else CalmColorScheme
+    // Always the branded light scheme — the WordPop identity (purple gradient, cartoon
+    // logo, light surfaces) is light-world by design. Following system dark mode made the
+    // inner pages look like a different app, so we pin the branded theme.
+    val colorScheme = CalmColorScheme
 
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.background.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            // Purple status bar everywhere so it blends with the landing gradient + banners.
+            window.statusBarColor = BrandPurple.toArgb()
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
         }
     }
 

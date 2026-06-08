@@ -113,7 +113,7 @@ fun GameScreen(
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 title = {
                     val s = (uiState as? GameUiState.Playing)?.session
                     if (s != null) {
@@ -1056,6 +1056,7 @@ fun GameOverScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp, vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1099,6 +1100,7 @@ fun CasualSavedScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp, vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1178,13 +1180,17 @@ private fun EndButtons(onPlayAgain: () -> Unit, onMainMenu: () -> Unit, accent: 
         Spacer(Modifier.width(8.dp))
         Text(playLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     }
-    OutlinedButton(
+    FilledTonalButton(
         onClick = onMainMenu,
         modifier = Modifier.fillMaxWidth().height(52.dp),
-        shape = RoundedCornerShape(14.dp)
+        shape = RoundedCornerShape(14.dp),
+        colors = ButtonDefaults.filledTonalButtonColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+        )
     ) {
         Icon(Icons.Default.Home, contentDescription = null, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(8.dp))
-        Text("Main Menu", style = MaterialTheme.typography.titleMedium)
+        Text("Main Menu", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     }
 }

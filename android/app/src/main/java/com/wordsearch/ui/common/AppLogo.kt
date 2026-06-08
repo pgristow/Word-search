@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+
 package com.wordsearch.ui.common
 
 import androidx.compose.foundation.background
@@ -16,10 +18,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wordsearch.R
+
+// Rounded, bubbly display face (Fredoka, OFL) bundled in res/font.
+private val FredokaFamily = FontFamily(
+    Font(R.font.fredoka, weight = FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700)))
+)
 
 // Playful logo palette.
 private val LogoPink = Color(0xFFFF5E8A)
@@ -38,7 +49,8 @@ fun AppLogo(modifier: Modifier = Modifier, fontSize: TextUnit = 64.sp) {
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy((-8).dp) // tuck the stacked lines close
+        // Stacked lines overlap slightly so the wordmark reads as one bubbly logo.
+        verticalArrangement = Arrangement.spacedBy((-14).dp)
     ) {
         lines.forEachIndexed { i, line ->
             BubbleText(
@@ -51,31 +63,42 @@ fun AppLogo(modifier: Modifier = Modifier, fontSize: TextUnit = 64.sp) {
     }
 }
 
-/** One line of bubble text: the glyphs drawn in 8 offset copies (outline) then the fill. */
+/**
+ * One line of bubble text in the rounded Fredoka face: a soft drop shadow, a thick dark
+ * outline (8 offset copies), the colour fill, then a top sheen — giving each letter a
+ * glossy balloon look while staying clearly legible.
+ */
 @Composable
 private fun BubbleText(text: String, fontSize: TextUnit, fill: Color, outline: Color) {
     Box(contentAlignment = Alignment.Center) {
-        val o = 3
-        val offsets = listOf(
+        // Drop shadow under the whole word.
+        Text(
+            text = text, fontSize = fontSize, fontWeight = FontWeight.Bold,
+            fontFamily = FredokaFamily, color = Color.Black.copy(alpha = 0.22f),
+            modifier = Modifier.offset(0.dp, 5.dp)
+        )
+        // Thick rounded outline.
+        val o = 4
+        listOf(
             -o to 0, o to 0, 0 to -o, 0 to o,
             -o to -o, o to o, -o to o, o to -o
-        )
-        offsets.forEach { (dx, dy) ->
+        ).forEach { (dx, dy) ->
             Text(
-                text = text,
-                fontSize = fontSize,
-                fontWeight = FontWeight.Black,
-                color = outline,
-                letterSpacing = 3.sp,
+                text = text, fontSize = fontSize, fontWeight = FontWeight.Bold,
+                fontFamily = FredokaFamily, color = outline,
                 modifier = Modifier.offset(dx.dp, dy.dp)
             )
         }
+        // Colour fill.
         Text(
-            text = text,
-            fontSize = fontSize,
-            fontWeight = FontWeight.Black,
-            color = fill,
-            letterSpacing = 3.sp
+            text = text, fontSize = fontSize, fontWeight = FontWeight.Bold,
+            fontFamily = FredokaFamily, color = fill
+        )
+        // Top sheen — the balloon highlight.
+        Text(
+            text = text, fontSize = fontSize, fontWeight = FontWeight.Bold,
+            fontFamily = FredokaFamily, color = Color.White.copy(alpha = 0.28f),
+            modifier = Modifier.offset(0.dp, (-3).dp)
         )
     }
 }

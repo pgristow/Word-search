@@ -76,7 +76,7 @@ fun CreditsScreen(onNavigateBack: () -> Unit) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 title = { Text("Credits") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

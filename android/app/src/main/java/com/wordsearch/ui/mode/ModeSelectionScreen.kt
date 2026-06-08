@@ -25,7 +25,7 @@ fun ModeSelectionScreen(
 ) {
     Scaffold(
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 title = { Text("Choose Game Mode") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

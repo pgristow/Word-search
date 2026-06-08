@@ -33,7 +33,7 @@ fun LeaderboardScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 title = { Text("Leaderboard") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

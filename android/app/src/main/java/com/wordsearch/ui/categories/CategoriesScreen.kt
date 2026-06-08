@@ -2,11 +2,13 @@ package com.wordsearch.ui.categories
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -14,6 +16,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -32,20 +36,19 @@ fun CategoriesScreen(
     onNavigateToDailyChallenge: () -> Unit,
     onNavigateToStore: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
-    onLogout: () -> Unit,
+    onNavigateBack: () -> Unit = {},
     viewModel: CategoriesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val userProgress by viewModel.userProgress.collectAsState()
-    var showMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 title = {
-                    Column {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = com.wordsearch.ui.common.AppBranding.NAME,
+                            text = "Categories",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
@@ -53,47 +56,29 @@ fun CategoriesScreen(
                             Text(
                                 text = "Level ${progress.currentLevel} • ${progress.totalScore} pts",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
                             )
                         }
                     }
                 },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
                 actions = {
+                    IconButton(onClick = onNavigateToStore) {
+                        Icon(Icons.Default.ShoppingCart, contentDescription = "Store")
+                    }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
-                    }
-                    IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Menu")
-                    }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Store") },
-                            onClick = {
-                                showMenu = false
-                                onNavigateToStore()
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Default.ShoppingCart, contentDescription = null)
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Logout") },
-                            onClick = {
-                                showMenu = false
-                                viewModel.logout(onLogout)
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Default.ExitToApp, contentDescription = null)
-                            }
-                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             )
         },
@@ -264,85 +249,77 @@ fun CategoryCard(
     onClick: () -> Unit
 ) {
     val isLocked = userLevel < category.unlockLevel
+    val theme = com.wordsearch.ui.common.categoryTheme(category.name)
+    val cardGradient = if (isLocked) {
+        Brush.verticalGradient(listOf(Color(0xFFCDC8D8), Color(0xFFABA5BA)))
+    } else {
+        Brush.verticalGradient(listOf(theme.top, theme.bottom))
+    }
 
     Card(
         onClick = { if (!isLocked) onClick() },
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(1f),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isLocked) {
-                MaterialTheme.colorScheme.surfaceVariant
-            } else {
-                MaterialTheme.colorScheme.primaryContainer
-            }
-        ),
-        border = if (!isLocked) {
-            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-        } else null,
-        enabled = !isLocked
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp, pressedElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            contentAlignment = Alignment.Center
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // 1) gradient fill
+            Box(modifier = Modifier.fillMaxSize().background(cardGradient))
+            // 2) bottom scrim so white text stays legible on lighter gradient stops
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.55f)
+                    .align(Alignment.BottomCenter)
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.38f))))
+            )
+            // 3) glossy inner highlight rim
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .border(
+                        width = 1.5.dp,
+                        brush = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.55f), Color.White.copy(alpha = 0.05f))),
+                        shape = RoundedCornerShape(24.dp)
+                    )
+            )
+            // 4) content
             Column(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Cartoon-style category badge: a big emoji on a soft tinted circle.
-                val art = categoryArt(category.name)
-                Box(
-                    modifier = Modifier
-                        .size(72.dp)
-                        .clip(CircleShape)
-                        .background(art.tint.copy(alpha = if (isLocked) 0.12f else 0.22f)),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = theme.emoji,
+                        fontSize = 52.sp,
+                        modifier = if (isLocked) Modifier.graphicsLayer { alpha = 0.22f } else Modifier
+                    )
                     if (isLocked) {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = "Locked",
-                            modifier = Modifier.size(34.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    } else {
-                        Text(text = art.emoji, fontSize = 40.sp)
+                        Icon(Icons.Default.Lock, contentDescription = "Locked", modifier = Modifier.size(36.dp), tint = Color.White)
                     }
                 }
-                Spacer(modifier = Modifier.height(10.dp))
-
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = category.name,
-                    style = MaterialTheme.typography.titleMedium,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
+                    color = Color.White,
                     textAlign = TextAlign.Center,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = if (isLocked) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    }
+                    overflow = TextOverflow.Ellipsis
                 )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                if (isLocked) {
-                    Text(
-                        text = "Level ${category.unlockLevel}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    Text(
-                        text = "${category.wordCount} words",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = if (isLocked) "Unlock at Level ${category.unlockLevel}" else "${category.wordCount} words",
+                    fontSize = 11.sp,
+                    color = Color.White.copy(alpha = 0.85f),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1
+                )
             }
         }
     }

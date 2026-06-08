@@ -40,7 +40,7 @@ fun LeagueScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 title = { Text("League") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

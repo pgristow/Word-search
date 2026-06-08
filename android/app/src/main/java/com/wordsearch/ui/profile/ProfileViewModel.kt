@@ -30,4 +30,11 @@ class ProfileViewModel @Inject constructor(
             gameRepository.getUserProgress().getOrNull()?.let { _progress.value = it }
         }
     }
+
+    fun logout(onDone: () -> Unit) {
+        viewModelScope.launch {
+            tokenManager.clearToken()
+            onDone()
+        }
+    }
 }

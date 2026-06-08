@@ -7,10 +7,10 @@ import androidx.compose.ui.graphics.Color
 val Ink = Color(0xFF2D2A32)         // primary text + letters
 val InkSoft = Color(0xFF6B6770)     // secondary text
 
-// Surfaces
-val AppBackground = Color(0xFFF4F1EA) // warm off-white backdrop
-val AppSurface = Color(0xFFFFFFFF)    // cards
-val BoardTrough = Color(0xFFE9E4D8)   // board behind the letter tiles
+// Surfaces — purple-tinted neutrals so the whole app harmonises with the WordPop purple.
+val AppBackground = Color(0xFFF0EEFB) // soft lavender-white backdrop
+val AppSurface = Color(0xFFFFFFFF)    // cards (white anchor)
+val BoardTrough = Color(0xFFE4DFFE)   // violet board trough behind the tiles
 val GridTile = Color(0xFFFFFFFF)      // a single letter tile
 
 // Brand / accents — the WordPop purple, matching the landing + loading screens.
