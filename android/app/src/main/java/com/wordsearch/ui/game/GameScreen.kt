@@ -612,6 +612,9 @@ fun StatChip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: Strin
 
 // Distinct colour for hinted-word highlight (purple-ish)
 private val HintHighlight = Color(0xFF8B7FD6)
+// Paper tile (sticky-note cream) and its darker wet state.
+private val PaperTile = Color(0xFFFBF1D6)
+private val PaperWet = Color(0xFFC7B68C)
 
 @Composable
 fun WordGrid(
@@ -707,13 +710,15 @@ fun WordGrid(
                             val isSelected = selectedSet.contains(cell)
                             val isHinted = hintedSet.contains(cell)
                             val isFound = !isSelected && !isHinted && foundColorByCell[cell] != null
+                            val wet = wetCells.contains(cell)
                             val tileColor = when {
                                 isSelected -> SelectBlue
                                 isHinted -> HintHighlight
                                 isFound -> foundColorByCell[cell]!!
-                                else -> MaterialTheme.colorScheme.surface
+                                wet -> PaperWet      // wet paper darkens
+                                else -> PaperTile    // crinkled sticky-note paper
                             }
-                            GridCell(Modifier.width(cellDp).fillMaxHeight(), tileColor, isFound)
+                            GridCell(Modifier.width(cellDp).fillMaxHeight(), tileColor, isFound, wet)
                         }
                     }
                 }
@@ -766,21 +771,15 @@ fun WordGrid(
                 drops.forEach { d -> drawPaintDrop(d) }
             }
 
-            // 3b) Water hazard: a translucent blue film + sheen on splashed tiles.
+            // 3b) Water hazard: the wet tile is already DARKENED via its colour; here we add
+            //     only a faint damp sheen so it looks wet, not painted.
             if (wetCells.isNotEmpty()) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
-                    val inset = cellPx * 0.06f
-                    val sz = cellPx - inset * 2
+                    val sz = cellPx - cellPx * 0.12f
                     wetCells.forEach { (r, c) ->
-                        val left = c * cellPx + inset
-                        val top = r * cellPx + inset
-                        drawRoundRect(
-                            color = Color(0xFF49B6F0).copy(alpha = 0.42f),
-                            topLeft = Offset(left, top),
-                            size = Size(sz, sz),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(cellPx * 0.18f)
-                        )
-                        drawCircle(Color.White.copy(alpha = 0.35f), radius = sz * 0.13f, center = Offset(left + sz * 0.32f, top + sz * 0.3f))
+                        val left = c * cellPx + cellPx * 0.06f
+                        val top = r * cellPx + cellPx * 0.06f
+                        drawCircle(Color.White.copy(alpha = 0.14f), radius = sz * 0.16f, center = Offset(left + sz * 0.32f, top + sz * 0.28f))
                     }
                 }
             }
@@ -813,14 +812,15 @@ fun WordGrid(
                         val cy = (r + 0.5f) * cellPx
                         val base = Offset(cx - layout.size.width / 2f, cy - layout.size.height / 2f)
                         if (wetCells.contains(cell)) {
-                            // Ink runs: a blurred, muddy smear (offset copies + a downward
-                            // run) instead of a crisp letter — unreadable but still there.
-                            val muddy = Color(0xFF143A55)
-                            val sm = cellPx * 0.06f
-                            listOf(-sm to 0f, sm to 0f, 0f to -sm, 0f to sm, -sm to -sm, sm to sm).forEach { (dx, dy) ->
-                                drawText(layout, color = muddy.copy(alpha = 0.16f), topLeft = base + Offset(dx, dy))
+                            // Wet ink: the letter goes LIGHTER and FUZZIER (bleeds outward in a
+                            // soft halo) — still faintly visible, not a hard smear.
+                            val lightInk = lerp(onSurface, PaperWet, 0.5f)
+                            val f = cellPx * 0.055f
+                            for (a in 0 until 8) {
+                                val ang = a / 8f * 6.2832f
+                                drawText(layout, color = lightInk.copy(alpha = 0.09f), topLeft = base + Offset(kotlin.math.cos(ang) * f, kotlin.math.sin(ang) * f))
                             }
-                            drawText(layout, color = muddy.copy(alpha = 0.30f), topLeft = base + Offset(0f, cellPx * 0.09f))
+                            drawText(layout, color = lightInk.copy(alpha = 0.5f), topLeft = base)
                         } else {
                             // lower-right dark shadow (depth) and upper-left light edge (bevel)
                             drawText(layout, color = Color.Black.copy(alpha = 0.55f), topLeft = base + Offset(o, o))
@@ -916,28 +916,51 @@ fun getWordColor(index: Int): Color {
 fun GridCell(
     modifier: Modifier = Modifier,
     tileColor: Color = Color.White,
-    isFound: Boolean = false
+    isFound: Boolean = false,
+    wet: Boolean = false
 ) {
-    // Just the tile BACKGROUND — letters are drawn in a separate layer above the paint.
-    // Highlight is a colour change plus a centred SCALE pop; the tile never translates or
-    // rotates, so it can't leave its grid cell (that was the old misalignment bug).
+    // The tile BACKGROUND, styled as a crinkled sticky-note paper. Letters are drawn in a
+    // separate layer above the paint. Found words give a centred SCALE pop — but NOT while
+    // the tile is being damaged (wet), so hazards read as "stuck", not bouncy.
     val animColor by animateColorAsState(tileColor, tween(220), label = "tileColor")
     val pop = remember { Animatable(1f) }
-    LaunchedEffect(isFound) {
-        if (isFound) {
+    LaunchedEffect(isFound, wet) {
+        if (isFound && !wet) {
             pop.snapTo(0.62f)
             pop.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow))
         } else {
             pop.snapTo(1f)
         }
     }
+    // Crease geometry, seeded once per cell so each "sheet" looks a little different.
+    val creases = remember { List(3) { floatArrayOf(kotlin.random.Random.nextFloat(), kotlin.random.Random.nextFloat()) } }
     Box(
         modifier = modifier
             .padding(1.dp)
             .graphicsLayer { scaleX = pop.value; scaleY = pop.value } // centred → no drift
             .clip(RoundedCornerShape(10.dp))
             .background(animColor)
-    )
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            // soft paper highlight (top-left) for a slightly glossy sticky-note feel
+            drawCircle(
+                Color.White.copy(alpha = 0.10f),
+                radius = size.minDimension * 0.55f,
+                center = Offset(size.width * 0.28f, size.height * 0.22f)
+            )
+            // faint diagonal crinkle creases
+            creases.forEach { cr ->
+                val y = cr[0] * size.height
+                val slope = (cr[1] - 0.5f) * 0.4f
+                drawLine(
+                    Color.Black.copy(alpha = 0.05f),
+                    Offset(0f, y - size.width * slope),
+                    Offset(size.width, y + size.width * slope),
+                    strokeWidth = 1.3f
+                )
+            }
+        }
+    }
 }
 
 @Composable
