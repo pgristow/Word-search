@@ -59,9 +59,14 @@ object NetworkModule {
         return OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .addInterceptor(loggingInterceptor)
+            // Render's free tier spins the server down when idle; the first request after
+            // that triggers a ~50-60s cold start. Generous read/call timeouts let that first
+            // request wait for the server to wake instead of failing at 30s.
             .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(75, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
+            .callTimeout(80, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
             .build()
     }
 
