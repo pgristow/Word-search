@@ -60,6 +60,21 @@ class GameViewModel @Inject constructor(
         paintCounter += 1
         val colorIndex = (_foundWordPaths.value.size - 1).coerceAtLeast(0)
         _paintBursts.value = _paintBursts.value + PaintBurst(paintCounter, path, colorIndex, score)
+        // Finding a word also CLEANS the board — the burst washes 2 wet tiles down by one
+        // level each (the inverse of a single water splash), so playing well keeps it tidy.
+        cleanWetTiles(2)
+    }
+
+    private fun cleanWetTiles(count: Int) {
+        val wet = _wetCells.value
+        if (wet.isEmpty()) return
+        val targets = wet.keys.shuffled().take(count)
+        val next = wet.toMutableMap()
+        targets.forEach { cell ->
+            val lv = (next[cell] ?: 0) - 1
+            if (lv <= 0) next.remove(cell) else next[cell] = lv
+        }
+        _wetCells.value = next
     }
 
     // WATER HAZARD (Casual sandbox): cell -> wetness LEVEL (1..3). Each splash on a cell
