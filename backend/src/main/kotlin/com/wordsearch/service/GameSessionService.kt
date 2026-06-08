@@ -271,7 +271,8 @@ class GameSessionService(
         // reflects the user's wallet after this submission.
         val coinsEarned: Long
         val coinBalance: Long
-        if (isBonus) {
+        // Casual is just-for-fun: no coins are earned there.
+        if (isBonus && session.gameMode != GameMode.CASUAL) {
             coinsEarned = economyService.bonusWordCoins(resolvedWord.length)
             coinBalance = economyService.earn(userId, coinsEarned, "BONUS_WORD", null)
         } else {

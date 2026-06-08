@@ -1,5 +1,28 @@
 # WordPop — Hazards, Tile Materials & Token Economy (Design Spec)
 
+## v2 — Owner decisions (2026-06-08)
+1. **Currency = existing COINS** (no new token currency). Wipe/clean, hint (30), and tile
+   upgrades are all priced in coins. **Casual earns 0 coins** (implemented).
+2. **10 hazards, not 3**, spread across **7 eras** over levels 1–1000 (acid moved **200 → 450**
+   so it sits behind the Teflon→Acid-Resistant gate). New: Fog, Mud, Soot, Frost, Oil, Wind,
+   Rust. First-appearance levels: Water 11, Fog 35, Mud 70, Paint 120, Soot 180, Frost 260,
+   Oil 350, Acid 450, Wind 560, Rust 680.
+3. **Everything recoverable** — a fully-acid-eaten tile is restored by a wash/clean (nothing
+   permanent).
+4. **Build order: Water → Paint → Acid.** Hazards ship to **Casual mode first**, toggleable in
+   Settings, as a free no-coin sandbox; later promoted to competitive with the coin economy.
+5. **Level select + replay** (Chapter Map): frontier = `highestLevelReached + 1`; all cleared
+   levels replayable; replays pay **bonus-word coins only with a decay** (×max(0.25, 1−0.15×replays))
+   and don't advance progress. Session-start gains an optional `requestedLevel`. Needs a small
+   `user_level_progress(user_id, level, best_score, clear_count)` table.
+
+Coin costs (v2): cleans 8/12/18/25 by hazard weight; upgrades Wood 2,500 / Teflon 9,000 /
+Acid-Resistant 32,000 / Diamond-Glaze 110,000; hint 30. Full-path grind ≈ 185–200 hrs. Full
+tables (hazard catalogue, era schedule, era earn-vs-spend, level-select) are in the design
+investigation; sections below are the original v1 framing kept for context.
+
+---
+
 > Status: **DRAFT for approval.** No code written yet. Consolidates three specialist
 > design passes (tile materials, token economy, hazard progression) plus the earlier
 > hazard/physics direction. Implementation is phased (see end).

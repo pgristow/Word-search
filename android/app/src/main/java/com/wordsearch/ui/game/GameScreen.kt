@@ -265,6 +265,7 @@ fun GamePlayingContent(
     val bonusWords by viewModel.bonusWords.collectAsState()
     val foundWordPaths by viewModel.foundWordPaths.collectAsState()
     val paintBursts by viewModel.paintBursts.collectAsState()
+    val wetCells by viewModel.wetCells.collectAsState()
     val lastWordResult by viewModel.lastWordResult.collectAsState()
     val hintedCells by viewModel.hintedCells.collectAsState()
     val isCasualMode = gameMode == "CASUAL"
@@ -305,11 +306,28 @@ fun GamePlayingContent(
                 foundWordPaths = foundWordPaths,
                 hintedCells = hintedCells,
                 paintBursts = paintBursts,
+                wetCells = wetCells,
                 onSelectionStart = { row, col -> viewModel.startSelection(row, col) },
                 onSelectionUpdate = { row, col -> viewModel.updateSelection(row, col, session.gridSize) },
                 onSelectionComplete = { viewModel.submitWord() }
             )
             WordFoundPopup(popup = popup, onDone = { viewModel.clearWordPopup() })
+        }
+
+        // Wash button — appears in the Casual hazard sandbox when tiles get splashed.
+        if (viewModel.hazardsActive) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
+                onClick = { viewModel.washBoard() },
+                enabled = wetCells.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3FA7E0))
+            ) {
+                Icon(Icons.Default.WaterDrop, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(if (wetCells.isEmpty()) "Tiles are dry" else "Wash the board", fontWeight = FontWeight.Bold)
+            }
         }
 
         // Bonus (off-list) words appear BELOW the grid, so discovering one never moves the
@@ -602,6 +620,7 @@ fun WordGrid(
     foundWordPaths: List<Pair<String, List<Pair<Int, Int>>>>,
     hintedCells: List<Pair<Int, Int>> = emptyList(),
     paintBursts: List<PaintBurst> = emptyList(),
+    wetCells: Set<Pair<Int, Int>> = emptySet(),
     onSelectionStart: (Int, Int) -> Unit,
     onSelectionUpdate: (Int, Int) -> Unit,
     onSelectionComplete: () -> Unit,
@@ -747,6 +766,25 @@ fun WordGrid(
                 drops.forEach { d -> drawPaintDrop(d) }
             }
 
+            // 3b) Water hazard: a translucent blue film + sheen on splashed tiles.
+            if (wetCells.isNotEmpty()) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val inset = cellPx * 0.06f
+                    val sz = cellPx - inset * 2
+                    wetCells.forEach { (r, c) ->
+                        val left = c * cellPx + inset
+                        val top = r * cellPx + inset
+                        drawRoundRect(
+                            color = Color(0xFF49B6F0).copy(alpha = 0.42f),
+                            topLeft = Offset(left, top),
+                            size = Size(sz, sz),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(cellPx * 0.18f)
+                        )
+                        drawCircle(Color.White.copy(alpha = 0.35f), radius = sz * 0.13f, center = Offset(left + sz * 0.32f, top + sz * 0.3f))
+                    }
+                }
+            }
+
             // 4) Letters ON TOP of the paint, drawn as RAISED/EMBOSSED glyphs so they stay
             //    readable over any paint colour without a thick outline closing the letter
             //    holes: a dark drop-shadow on the lower-right + a light highlight on the
@@ -774,11 +812,22 @@ fun WordGrid(
                         val cx = (c + 0.5f) * cellPx
                         val cy = (r + 0.5f) * cellPx
                         val base = Offset(cx - layout.size.width / 2f, cy - layout.size.height / 2f)
-                        // lower-right dark shadow (depth) and upper-left light edge (bevel)
-                        drawText(layout, color = Color.Black.copy(alpha = 0.55f), topLeft = base + Offset(o, o))
-                        drawText(layout, color = Color.White.copy(alpha = 0.65f), topLeft = base + Offset(-o * 0.8f, -o * 0.8f))
-                        // main fill on top
-                        drawText(layout, color = fill, topLeft = base)
+                        if (wetCells.contains(cell)) {
+                            // Ink runs: a blurred, muddy smear (offset copies + a downward
+                            // run) instead of a crisp letter — unreadable but still there.
+                            val muddy = Color(0xFF143A55)
+                            val sm = cellPx * 0.06f
+                            listOf(-sm to 0f, sm to 0f, 0f to -sm, 0f to sm, -sm to -sm, sm to sm).forEach { (dx, dy) ->
+                                drawText(layout, color = muddy.copy(alpha = 0.16f), topLeft = base + Offset(dx, dy))
+                            }
+                            drawText(layout, color = muddy.copy(alpha = 0.30f), topLeft = base + Offset(0f, cellPx * 0.09f))
+                        } else {
+                            // lower-right dark shadow (depth) and upper-left light edge (bevel)
+                            drawText(layout, color = Color.Black.copy(alpha = 0.55f), topLeft = base + Offset(o, o))
+                            drawText(layout, color = Color.White.copy(alpha = 0.65f), topLeft = base + Offset(-o * 0.8f, -o * 0.8f))
+                            // main fill on top
+                            drawText(layout, color = fill, topLeft = base)
+                        }
                     }
                 }
             }

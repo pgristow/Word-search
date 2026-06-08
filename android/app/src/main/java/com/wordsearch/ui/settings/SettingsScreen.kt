@@ -29,6 +29,7 @@ fun SettingsScreen(
     val track by viewModel.track.collectAsState()
     val shuffle by viewModel.shuffle.collectAsState()
     val volume by viewModel.volume.collectAsState()
+    val hazards by viewModel.hazards.collectAsState()
 
     Scaffold(
         topBar = {
@@ -60,6 +61,11 @@ fun SettingsScreen(
             ToggleRow("Sound effects", "Chime on correct, gentle tone on wrong", sfx, viewModel::setSfx)
             ToggleRow("Casual music", "Background music while you play Casual", music, viewModel::setMusic)
             ToggleRow("Shuffle tracks", "Start on a random song and roll through them all", shuffle, viewModel::setShuffle)
+
+            Spacer(Modifier.height(20.dp))
+            Text("Gameplay", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            ToggleRow("Casual splash hazards", "Water balloons splash the tiles in Casual — wash them off to keep playing", hazards, viewModel::setHazards)
 
             Spacer(Modifier.height(12.dp))
             Text("Music volume", style = MaterialTheme.typography.bodyLarge)

@@ -18,4 +18,9 @@ class ModeStore @Inject constructor(
     var isCasual: Boolean
         get() = prefs.getBoolean("casual", false)
         set(v) = prefs.edit().putBoolean("casual", v).apply()
+
+    /** Whether splash hazards (water, …) are active in Casual mode. */
+    var casualHazards: Boolean
+        get() = prefs.getBoolean("hazards", true)
+        set(v) = prefs.edit().putBoolean("hazards", v).apply()
 }

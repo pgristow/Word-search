@@ -20,7 +20,8 @@ import kotlin.math.abs
 @HiltViewModel
 class GameViewModel @Inject constructor(
     private val gameRepository: GameRepository,
-    private val soundManager: SoundManager
+    private val soundManager: SoundManager,
+    private val modeStore: com.wordsearch.data.local.ModeStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<GameUiState>(GameUiState.Loading)
@@ -60,6 +61,44 @@ class GameViewModel @Inject constructor(
         val colorIndex = (_foundWordPaths.value.size - 1).coerceAtLeast(0)
         _paintBursts.value = _paintBursts.value + PaintBurst(paintCounter, path, colorIndex, score)
     }
+
+    // WATER HAZARD (Casual sandbox): cells currently splashed/smudged. The letter on a wet
+    // cell is obscured; the cell stays selectable. Wash the board to clear them all.
+    private val _wetCells = MutableStateFlow<Set<Pair<Int, Int>>>(emptySet())
+    val wetCells: StateFlow<Set<Pair<Int, Int>>> = _wetCells.asStateFlow()
+    // A bump id that ticks whenever a new balloon pops, so the UI can splash an animation.
+    private val _splashEvent = MutableStateFlow(0L to (0 to 0))
+    val splashEvent: StateFlow<Pair<Long, Pair<Int, Int>>> = _splashEvent.asStateFlow()
+    private var hazardJob: kotlinx.coroutines.Job? = null
+    /** True when water hazards should run (Casual mode + enabled in settings). */
+    var hazardsActive: Boolean = false
+        private set
+
+    fun washBoard() { _wetCells.value = emptySet() }
+
+    private fun startWaterHazard(gridSize: Int) {
+        hazardJob?.cancel()
+        hazardJob = viewModelScope.launch {
+            kotlinx.coroutines.delay(4000)
+            while (true) {
+                // A water balloon pops on a random cell and wets a small cluster around it.
+                val cr = kotlin.random.Random.nextInt(gridSize)
+                val cc = kotlin.random.Random.nextInt(gridSize)
+                _splashEvent.value = (System.nanoTime()) to (cr to cc)
+                val splash = buildSet {
+                    add(cr to cc)
+                    for (dr in -1..1) for (dc in -1..1) {
+                        val r = cr + dr; val c = cc + dc
+                        if (r in 0 until gridSize && c in 0 until gridSize && kotlin.random.Random.nextFloat() < 0.6f) add(r to c)
+                    }
+                }
+                _wetCells.value = _wetCells.value + splash
+                kotlinx.coroutines.delay(5500)
+            }
+        }
+    }
+
+    private fun stopWaterHazard() { hazardJob?.cancel(); hazardJob = null; _wetCells.value = emptySet() }
 
     // Hint: cells of the most-recently hinted word (cleared when a new selection starts)
     private val _hintedCells = MutableStateFlow<List<Pair<Int, Int>>>(emptyList())
@@ -102,6 +141,11 @@ class GameViewModel @Inject constructor(
 
                     // Relaxing background music for casual mode only.
                     if (gameMode.equals("CASUAL", ignoreCase = true)) soundManager.startCasualMusic()
+
+                    // Casual splash hazards (water for now), if enabled in settings.
+                    hazardsActive = gameMode.equals("CASUAL", ignoreCase = true) && modeStore.casualHazards
+                    _wetCells.value = emptySet()
+                    if (hazardsActive) startWaterHazard(session.gridSize) else stopWaterHazard()
 
                     _uiState.value = GameUiState.Playing(session)
                 } else {
@@ -420,7 +464,7 @@ class GameViewModel @Inject constructor(
 
     fun endGame() {
         val session = currentSession ?: return
-        soundManager.stopMusic()
+        soundManager.stopMusic(); stopWaterHazard()
 
         viewModelScope.launch {
             try {
@@ -444,7 +488,7 @@ class GameViewModel @Inject constructor(
 
     fun saveCasualProgress() {
         val session = currentSession ?: return
-        soundManager.stopMusic()
+        soundManager.stopMusic(); stopWaterHazard()
 
         viewModelScope.launch {
             try {
@@ -469,7 +513,7 @@ class GameViewModel @Inject constructor(
     }
 
     override fun onCleared() {
-        soundManager.stopMusic()
+        soundManager.stopMusic(); stopWaterHazard()
         super.onCleared()
     }
 }

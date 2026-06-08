@@ -2,6 +2,7 @@ package com.wordsearch.ui.settings
 
 import androidx.lifecycle.ViewModel
 import com.wordsearch.data.audio.SoundManager
+import com.wordsearch.data.local.ModeStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -9,8 +10,13 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val sound: SoundManager
+    private val sound: SoundManager,
+    private val modeStore: ModeStore
 ) : ViewModel() {
+
+    private val _hazards = MutableStateFlow(modeStore.casualHazards)
+    val hazards = _hazards.asStateFlow()
+    fun setHazards(v: Boolean) { modeStore.casualHazards = v; _hazards.value = v }
 
     private val _sfx = MutableStateFlow(sound.sfxEnabled)
     val sfx = _sfx.asStateFlow()
