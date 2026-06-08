@@ -15,7 +15,11 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -52,27 +56,50 @@ private val TopDrips = listOf(
 )
 
 /**
- * Animated paint drips running down from the top edge — they extend on entry and a bulb
- * of paint gathers at the bottom of each, like wet paint dripping into the screen.
+ * Live paint drips along the top edge: each ooze extends in, its bulb gently swells, and on
+ * a loop a droplet pinches off and falls down the screen (with gravity) before a new one
+ * gathers — so the paint keeps dripping. Each drip runs on its own phase so it feels organic.
  */
 @Composable
 private fun PaintDripsOverlay(modifier: Modifier = Modifier) {
-    val progress = remember { Animatable(0f) }
+    // A continuously increasing clock (seconds) drives all the motion.
+    var t by remember { mutableStateOf(0f) }
     LaunchedEffect(Unit) {
-        progress.animateTo(1f, tween(1100, easing = FastOutSlowInEasing))
+        val start = withFrameNanos { it }
+        while (true) {
+            withFrameNanos { now -> t = (now - start) / 1_000_000_000f }
+        }
     }
     Canvas(modifier = modifier) {
-        TopDrips.forEach { d ->
+        TopDrips.forEachIndexed { i, d ->
             val x = d.xFrac * size.width
             val w = d.widthDp.dp.toPx()
-            val len = d.lenDp.dp.toPx() * progress.value
-            // running paint
+            val phase = i * 0.9f
+            // Extend in over the first ~1.1s, then a small continuous ooze.
+            val grow = (t / 1.1f).coerceIn(0f, 1f)
+            val ooze = (kotlin.math.sin(t * 0.9f + phase) * 0.5f + 0.5f) * w * 0.9f
+            val len = d.lenDp.dp.toPx() * grow + ooze
+            // The running paint column.
             drawLine(d.color, Offset(x, -8f), Offset(x, len), strokeWidth = w, cap = StrokeCap.Round)
-            // bulb gathering at the tip
-            val bulb = w * 0.75f + 4f
+            // The bulb at the tip swells and shrinks (gathering paint).
+            val swell = kotlin.math.sin(t * 1.6f + phase) * w * 0.18f
+            val bulb = w * 0.78f + 4f + swell
             drawCircle(d.color, radius = bulb, center = Offset(x, len))
-            // wet sheen on the bulb
-            drawCircle(Color.White.copy(alpha = 0.35f), radius = bulb * 0.32f, center = Offset(x - bulb * 0.3f, len - bulb * 0.35f))
+            drawCircle(Color.White.copy(alpha = 0.35f), radius = bulb * 0.30f, center = Offset(x - bulb * 0.3f, len - bulb * 0.32f))
+
+            // A droplet pinches off and falls on a loop (faster/accelerating as it drops).
+            val period = 3.2f + (i % 3) * 0.6f
+            val k = ((t + phase) % period) / period   // 0..1 within the fall cycle
+            if (grow >= 1f) {
+                val fall = k * k                       // gravity ease-in
+                val dy = len + fall * (size.height - len + 40f)
+                val alpha = (1f - k).coerceIn(0f, 1f)
+                val dropR = w * 0.55f * (1f - k * 0.35f)
+                // teardrop: a short tail above the falling head
+                drawLine(d.color.copy(alpha = alpha * 0.7f), Offset(x, dy - dropR * 2.2f), Offset(x, dy), strokeWidth = dropR * 1.1f, cap = StrokeCap.Round)
+                drawCircle(d.color.copy(alpha = alpha), radius = dropR, center = Offset(x, dy))
+                drawCircle(Color.White.copy(alpha = alpha * 0.4f), radius = dropR * 0.3f, center = Offset(x - dropR * 0.25f, dy - dropR * 0.3f))
+            }
         }
     }
 }
